@@ -38,7 +38,7 @@ button{font-family:var(--fb);cursor:pointer;border:none;background:none;color:in
 .tg-link{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:20px;padding:8px 16px;background:rgba(79,138,255,.08);border:1px solid rgba(79,138,255,.2);border-radius:20px;color:var(--ac);font-family:var(--fu);font-size:9px;font-weight:700;letter-spacing:.06em;text-decoration:none;transition:all .18s;width:fit-content;margin-left:auto;margin-right:auto}
 .tg-link:hover{background:rgba(79,138,255,.15);border-color:rgba(79,138,255,.4)}
 
-@keyframes blink{50%{opacity:.3}}
+@keyframes riseIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}
 
 .acard{background:var(--s1);border:1px solid var(--b1);border-radius:22px;overflow:hidden;
   box-shadow:0 0 0 1px rgba(255,255,255,.02),0 32px 64px rgba(0,0,0,.5),0 0 80px rgba(79,138,255,.07)}
@@ -986,6 +986,8 @@ function enterApp(){
   loadLocalContacts();renderCL();connectWS();
   const dm=new URLSearchParams(location.search).get('dm');
   if(dm){history.replaceState({},'',location.pathname);const un=dm.replace(/^@/,'').toLowerCase();if(un!==ME.username)setTimeout(()=>openChat(un),800);}
+  // Request notification permission
+  requestNotifPermission();
 }
 
 // ════════════════════════════════════════════════════
@@ -1013,10 +1015,13 @@ function connectWS(){
   ws.onmessage=({data})=>{
     try{
       const msg=JSON.parse(data);
-      if(msg.type==='pong')return; // ignore pong
+      if(msg.type==='pong')return;
       if(msg.type==='kicked'){
-        // Logged in from another device
-        toast('Выполнен вход с другого устройства');
+        pushNotif('🔐 Nexus — Безопасность',{
+          body:'Выполнен вход с другого устройства. Если это не вы — смените пароль.',
+          icon:'/favicon.ico',tag:'kicked',requireInteraction:true,
+        });
+        showSystemMsg('⚠️ Вход с другого устройства','Если это не вы — зайди в Активные сессии и завершите чужую.','warn');
         return;
       }
       handleWS(msg);
@@ -1051,8 +1056,17 @@ function handleWS(msg){
       else{delete onlineMap[msg.username];if(contacts[msg.username])contacts[msg.username].online=false;if(callPartner===msg.username)endCall(false);}
       renderCL();updateHSt();break;
     case 'message':
-      if(sentIds.has(msg.id))break; // dedup: already rendered
-      recvMsg(msg);break;
+      if(sentIds.has(msg.id))break;
+      recvMsg(msg);
+      // Уведомление если окно не в фокусе
+      if(document.hidden||!document.hasFocus()){
+        const sender=getUser(msg.from);
+        pushNotif(`💬 ${sender?.nickname||msg.from}`,{
+          body: msg.text?.slice(0,80)||'📎 Медиа',
+          icon:'/favicon.ico', tag:'msg_'+msg.from,
+        });
+      }
+      break;
     case 'msg_ack':
       sentIds.delete(msg.id); // clean up
       break;
@@ -1070,7 +1084,13 @@ function handleWS(msg){
       // Server told us call was queued as missed — show in chat
       toast(`📵 ${getUser(msg.to)?.nickname||msg.to} не в сети — оставили пропущенный звонок`);
       insertMissedCall(msg.to,'miss');break;
-    case 'offer':onOffer(msg);break;
+    case 'offer':
+      onOffer(msg);
+      pushNotif(`📞 Входящий звонок`,{
+        body:`${getUser(msg.from)?.nickname||msg.from} звонит вам`,
+        icon:'/favicon.ico', tag:'call', requireInteraction:true,
+      });
+      break;
     case 'answer':onAnswer(msg);break;
     case 'ice':onIce(msg);break;
     case 'call_decline':onDeclined();break;
@@ -1913,8 +1933,58 @@ async function terminateAllSessions(){
 
 
 // ═══════════════════════════════════════════════════
-//  POLLING FALLBACK — когда WS не работает
+//  NOTIFICATIONS
 // ═══════════════════════════════════════════════════
+function requestNotifPermission(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default'){
+    setTimeout(()=>{
+      Notification.requestPermission().then(p=>{
+        if(p==='granted') pushNotif('🔔 Nexus Notifications',{body:'Уведомления включены! Теперь вы не пропустите сообщения.',tag:'welcome'});
+      });
+    },2000);
+  }
+}
+
+function pushNotif(title,opts={}){
+  if(!('Notification' in window))return;
+  if(Notification.permission!=='granted')return;
+  if(document.hasFocus()&&!opts.requireInteraction)return; // не показываем если окно в фокусе
+  try{ new Notification(title,{icon:'/favicon.ico',badge:'/favicon.ico',...opts}); }catch{}
+}
+
+// Системный баннер внутри приложения (как в Telegram)
+function showSystemMsg(title,text,type='info'){
+  // type: info | warn | danger
+  const colors={info:'var(--ac)',warn:'var(--am)',danger:'var(--rd)'};
+  const bg={info:'rgba(79,138,255,.08)',warn:'rgba(245,158,11,.08)',danger:'rgba(255,79,114,.08)'};
+  const border={info:'rgba(79,138,255,.2)',warn:'rgba(245,158,11,.2)',danger:'rgba(255,79,114,.2)'};
+
+  // Remove existing
+  document.querySelectorAll('.sys-banner').forEach(el=>el.remove());
+
+  const el=document.createElement('div');
+  el.className='sys-banner';
+  el.style.cssText=`
+    position:fixed;top:max(14px,var(--st));left:50%;transform:translateX(-50%);
+    z-index:950;max-width:min(420px,calc(100vw - 32px));width:100%;
+    background:${bg[type]};border:1px solid ${border[type]};border-radius:14px;
+    padding:12px 14px;display:flex;align-items:flex-start;gap:11px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);animation:.3s riseIn ease;
+    backdrop-filter:blur(12px);
+  `;
+  el.innerHTML=`
+    <div style="font-size:18px;flex-shrink:0;margin-top:1px">🔔</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-family:var(--fu);font-size:11px;font-weight:700;color:${colors[type]};margin-bottom:3px">${title}</div>
+      <div style="font-size:12px;color:var(--sb);line-height:1.5">${text}</div>
+    </div>
+    <div onclick="this.closest('.sys-banner').remove()" style="color:var(--mu);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;padding:0 2px">✕</div>
+  `;
+  document.body.appendChild(el);
+  // Auto-remove after 8s
+  setTimeout(()=>el.remove(),8000);
+}
 let pollIv=null;
 let lastMsgTs=0;
 
