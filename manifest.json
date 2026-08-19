@@ -1,0 +1,27 @@
+{
+  "name": "Nexus Messenger",
+  "short_name": "Nexus",
+  "description": "Безопасный мессенджер со звонками",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090f",
+  "theme_color": "#07090f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%2307090f'/><text x='96' y='130' font-family='Arial Black' font-size='110' font-weight='900' text-anchor='middle' fill='url(%23g)'>N</text><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%234f8aff'/><stop offset='100%25' stop-color='%238b5cf6'/></linearGradient></defs></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%2307090f'/><text x='256' y='360' font-family='Arial Black' font-size='300' font-weight='900' text-anchor='middle' fill='url(%23g)'>N</text><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%234f8aff'/><stop offset='100%25' stop-color='%238b5cf6'/></linearGradient></defs></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "communication"],
+  "lang": "ru",
+  "dir": "ltr"
+}
