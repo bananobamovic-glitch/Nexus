@@ -322,31 +322,36 @@ function send(res, status, data) {
   res.end(JSON.stringify(data));
 }
 function serve(res, filePath) {
-  const f = path.join(__dirname, filePath || 'index.html');
+  // Serve index.html (from cache or disk)
+  if (!filePath || filePath === 'index.html') {
+    const html = cachedHTML || fs.existsSync(path.join(__dirname,'index.html')) && fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+    if (html) {
+      res.writeHead(200, {'Content-Type':'text/html;charset=utf-8'});
+      res.end(html);
+    } else {
+      res.writeHead(200, {'Content-Type':'text/html;charset=utf-8'});
+      res.end(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nexus</title>
+<style>body{background:#07090f;color:#dde6f8;font-family:Arial;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:12px;text-align:center}
+h1{font-size:48px;margin:0;background:linear-gradient(135deg,#4f8aff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+p{color:#6b7fa3;font-size:13px;max-width:340px;line-height:1.7}code{background:#111520;padding:2px 7px;border-radius:5px;color:#4f8aff}</style></head>
+<body><h1>NEXUS</h1><p>Сервер работает ✅<br><br>
+Загрузи <code>index.html</code> в GitHub репозиторий рядом с <code>server.js</code></p>
+<p style="font-size:11px;color:#3a4560">github.com/bananobamovic-glitch/Nexus → Add file → Upload files</p>
+<button onclick="location.reload()" style="margin-top:8px;padding:10px 20px;background:linear-gradient(135deg,#4f8aff,#8b5cf6);color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px">🔄 Обновить</button>
+</body></html>`);
+    }
+    return;
+  }
+  // Other static files
+  const f = path.join(__dirname, filePath);
   if (fs.existsSync(f)) {
     const ext = path.extname(f);
-    const types = { '.html': 'text/html;charset=utf-8', '.json': 'application/json', '.js': 'application/javascript', '.png': 'image/png', '.ico': 'image/x-icon' };
-    res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
+    const types = {'.json':'application/json','.js':'application/javascript','.png':'image/png','.ico':'image/x-icon'};
+    res.writeHead(200, {'Content-Type': types[ext]||'text/plain'});
     res.end(fs.readFileSync(f));
-  } else if (filePath && filePath !== 'index.html') {
-    // Missing static file (sw.js, manifest etc) - return empty ok
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('');
   } else {
-    // index.html missing - serve built-in fallback that auto-redirects
-    res.writeHead(200, { 'Content-Type': 'text/html;charset=utf-8' });
-    res.end(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Nexus</title>
-<style>body{background:#07090f;color:#dde6f8;font-family:Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:16px}
-h1{font-size:48px;margin:0;background:linear-gradient(135deg,#4f8aff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-p{color:#6b7fa3;font-size:14px;text-align:center;max-width:360px;line-height:1.7}
-code{background:#111520;padding:3px 8px;border-radius:6px;color:#4f8aff;font-size:13px}</style>
-</head><body>
-<h1>NEXUS</h1>
-<p>Сервер запущен ✅<br><br>
-Загрузи <code>index.html</code> в GitHub репозиторий рядом с <code>server.js</code> — сайт появится автоматически.</p>
-<p style="font-size:12px;color:#3a4560">github.com → твой репо → Add file → Upload files</p>
-</body></html>`);
+    res.writeHead(200, {'Content-Type':'text/plain'});
+    res.end('');
   }
 }
 
@@ -502,6 +507,35 @@ function broadcast(msg, except) {
 function J(o) { return JSON.stringify(o); }
 
 // ─── Start ─────────────────────────────────────────
+const REPO_RAW = 'https://raw.githubusercontent.com/bananobamovic-glitch/Nexus/main/index.html';
+let cachedHTML = null;
+
+// Download index.html from GitHub if not found locally
+async function fetchHTML() {
+  const local = path.join(__dirname, 'index.html');
+  if (fs.existsSync(local)) {
+    cachedHTML = fs.readFileSync(local, 'utf8');
+    console.log('✅ index.html загружен локально');
+    return;
+  }
+  console.log('📥 index.html не найден, скачиваю с GitHub...');
+  return new Promise(resolve => {
+    https.get(REPO_RAW, res => {
+      let data = '';
+      res.on('data', d => data += d);
+      res.on('end', () => {
+        if (res.statusCode === 200 && data.includes('<!DOCTYPE')) {
+          cachedHTML = data;
+          console.log('✅ index.html скачан с GitHub (' + data.length + ' bytes)');
+        } else {
+          console.warn('⚠️ Не удалось скачать index.html, статус: ' + res.statusCode);
+        }
+        resolve();
+      });
+    }).on('error', e => { console.warn('⚠️ Ошибка загрузки index.html:', e.message); resolve(); });
+  });
+}
+
 async function start() {
   if (!GITHUB_TOKEN) {
     console.warn('⚠️  GITHUB_TOKEN не задан — данные не сохранятся');
@@ -509,9 +543,13 @@ async function start() {
     console.log('📦 Загружаю из GitHub Gist...');
     await loadGist();
   }
+
+  await fetchHTML();
+
   server.listen(PORT, () => {
     console.log(`\n🚀 Nexus v6 → http://localhost:${PORT}`);
     console.log(`   Users: ${Object.keys(db.users).length}`);
+    console.log(`   HTML: ${cachedHTML ? 'OK' : '❌ НЕ ЗАГРУЖЕН'}`);
     console.log(`   Gist: ${db.gistId || 'создастся при первом сохранении'}\n`);
   });
 }
