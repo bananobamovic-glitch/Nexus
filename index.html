@@ -370,6 +370,41 @@ input.fi::placeholder{color:var(--mu)}input.fi.ok{border-color:var(--gn)}input.f
 .sess-del svg{width:14px;height:14px}
 body.night{--bg:#000;--s1:#0a0a0a;--s2:#0f0f0f;--s3:#141414;--b1:#1a1a1a;--b2:#222;--tx:#e8e8e8;--sb:#555;--mu:#2a2a2a}
 .hidden{display:none!important}
+
+/* ── CHANNEL DISCOVERY ── */
+.ch-disc-card{background:var(--s3);border:1px solid var(--b1);border-radius:14px;padding:14px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:background .14s}
+.ch-disc-card:hover,.ch-disc-card:active{background:var(--b1)}
+.ch-disc-av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.ch-disc-info{flex:1;min-width:0}
+.ch-disc-name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-disc-meta{font-size:11px;color:var(--sb);margin-top:2px;display:flex;align-items:center;gap:6px}
+.ch-disc-badge{font-family:var(--fu);font-size:8px;font-weight:700;padding:2px 7px;border-radius:8px;letter-spacing:.04em}
+.ch-disc-badge.pub{background:rgba(16,217,160,.12);color:var(--gn);border:1px solid rgba(16,217,160,.2)}
+.ch-disc-badge.priv{background:rgba(139,92,246,.12);color:var(--a2);border:1px solid rgba(139,92,246,.2)}
+.ch-join-btn{padding:7px 14px;border-radius:9px;font-family:var(--fu);font-size:9px;font-weight:700;cursor:pointer;border:none;flex-shrink:0;transition:opacity .15s}
+.ch-join-btn:hover{opacity:.85}
+.ch-join-btn.join{background:var(--ag);color:#fff}
+.ch-join-btn.joined{background:var(--s2);color:var(--sb);border:1px solid var(--b1)}
+
+/* ── PRIVACY BADGE in search results ── */
+.priv-lock{display:inline-flex;align-items:center;gap:3px;font-family:var(--fu);font-size:8px;color:var(--mu);background:rgba(255,255,255,.04);padding:2px 6px;border-radius:6px;border:1px solid var(--b1);vertical-align:middle;margin-left:4px}
+.priv-lock svg{width:9px;height:9px;fill:currentColor}
+
+/* ── TOGGLE ROW (reusable) ── */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)}
+.tog-row:last-child{border-bottom:none}
+.tog-row-info{flex:1;min-width:0;padding-right:12px}
+.tog-row-lbl{font-size:13px;font-weight:600}
+.tog-row-sub{font-size:11px;color:var(--sb);margin-top:2px;line-height:1.5}
+
+/* ── INVITE JOIN SCREEN ── */
+#join-screen{display:none;position:fixed;inset:0;z-index:910;background:var(--bg);align-items:center;justify-content:center;padding:24px}
+#join-screen.on{display:flex}
+.js-box{background:var(--s1);border:1px solid var(--b1);border-radius:24px;padding:32px 24px;width:100%;max-width:380px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.6);animation:.4s authIn cubic-bezier(.22,1,.36,1)}
+.js-av{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 14px;border:3px solid rgba(79,138,255,.2)}
+.js-name{font-family:var(--fu);font-size:18px;font-weight:700;margin-bottom:4px}
+.js-meta{font-size:12px;color:var(--sb);margin-bottom:6px}
+.js-desc{font-size:13px;color:var(--tx);margin-bottom:24px;line-height:1.6}
 </style>
 </head>
 <body>
@@ -1936,80 +1971,12 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catc
 // ════════════════════════════════════════════════════
 //  КАНАЛЫ
 // ════════════════════════════════════════════════════
+//  КАНАЛЫ — base data & helpers (UI реализована ниже)
+// ════════════════════════════════════════════════════
 let channels = JSON.parse(localStorage.getItem('nx_channels')||'{}');
 function saveChannels(){ localStorage.setItem('nx_channels',JSON.stringify(channels)); }
 function openChannels(){ closeDrawer(); showChannelList(); }
-function showChannelList(){
-  const modal=document.createElement('div'); modal.className='modal on'; modal.id='ch-list-modal';
-  const myChannels=Object.values(channels);
-  modal.innerHTML=`<div class="mbox">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="m-title" style="margin:0">📢 Каналы</div>
-      <button class="mbtn" style="width:auto;padding:8px 14px;margin:0" onclick="showCreateChannel()">+ Создать</button>
-    </div>
-    ${!myChannels.length?`<div style="text-align:center;color:var(--sb);padding:20px;font-size:13px">Нет каналов. Создай свой!</div>`:''}
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-      ${myChannels.map(c=>`
-        <div onclick="openChannel('${c.id}')" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--s3);border:1px solid var(--b1);border-radius:12px;cursor:pointer">
-          <div style="width:44px;height:44px;border-radius:50%;background:${c.color}22;color:${c.color};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${c.emoji||'📢'}</div>
-          <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${c.name}</div><div style="font-size:11px;color:var(--sb);margin-top:2px">${c.members?.length||1} подписчиков · ${c.myRole==='owner'?'Владелец':'Подписчик'}</div></div>
-        </div>`).join('')}
-    </div>
-    <button class="mbtn mbtn-g" onclick="g('ch-list-modal').remove()">Закрыть</button>
-  </div>`;
-  document.body.appendChild(modal);
-}
-function showCreateChannel(){
-  g('ch-list-modal')?.remove();
-  const modal=document.createElement('div'); modal.className='modal on'; modal.id='ch-create-modal';
-  const emojis=['📢','🎮','💻','🎵','📸','🏆','💡','🔥','⚡','🌟'];
-  window._chEmoji='📢'; window._chColor=PAL[1];
-  modal.innerHTML=`<div class="mbox">
-    <div class="m-title">Новый канал</div>
-    <div class="fi-g"><label class="fi-lbl">Название</label><input class="fi" id="cn-name" placeholder="Мой канал" maxlength="40"/></div>
-    <div class="fi-g"><label class="fi-lbl">Описание</label><input class="fi" id="cn-desc" placeholder="О чём канал..." maxlength="100"/></div>
-    <div class="fi-g"><label class="fi-lbl">Эмодзи</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">${emojis.map(e=>`<div onclick="this.parentNode.querySelectorAll('.esel').forEach(x=>x.style.borderColor='var(--b1)');this.style.borderColor='var(--ac)';window._chEmoji='${e}'" class="esel" style="width:36px;height:36px;border-radius:9px;background:var(--s3);border:2px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer">${e}</div>`).join('')}</div>
-    </div>
-    <div class="fi-g"><label class="fi-lbl">Цвет</label>
-      <div style="display:flex;gap:7px;flex-wrap:wrap">${PAL.map(c=>`<div onclick="this.parentNode.querySelectorAll('.csel').forEach(x=>x.style.outline='none');this.style.outline='3px solid #fff';window._chColor='${c}'" class="csel" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer"></div>`).join('')}</div>
-    </div>
-    <div class="m-err" id="cn-err"></div>
-    <button class="mbtn" onclick="createChannel()">Создать канал</button>
-    <button class="mbtn mbtn-g" onclick="g('ch-create-modal').remove();showChannelList()">Назад</button>
-  </div>`;
-  document.body.appendChild(modal);
-}
-function createChannel(){
-  const name=g('cn-name').value.trim();
-  if(!name){ g('cn-err').className='m-err e'; g('cn-err').textContent='Введи название'; return; }
-  const id='ch_'+uid();
-  channels[id]={id, name, desc:g('cn-desc').value.trim(), emoji:window._chEmoji||'📢', color:window._chColor||PAL[1], owner:ME.username, members:[ME.username], posts:[], myRole:'owner'};
-  saveChannels();
-  g('ch-create-modal').remove();
-  openChannel(id);
-}
-function openChannel(id){
-  document.querySelectorAll('.modal').forEach(m=>m.remove());
-  const ch=channels[id]; if(!ch) return;
-  curChat=null; document.body.classList.add('chat-open');
-  g('ch-ec').classList.add('hidden');
-  const hdr=g('ch-hdr'); hdr.classList.remove('hidden');
-  const av=g('ch-av'); av.textContent=ch.emoji; av.style.background=ch.color+'22'; av.style.color=ch.color;
-  g('ch-nm').textContent=ch.name; g('ch-id').textContent=ch.desc||'Канал';
-  g('ch-st').textContent=`${ch.members?.length||1} подписчиков`; g('ch-st').style.color='var(--sb)';
-  const mw=g('mw'); mw.classList.remove('hidden');
-  g('dlbl').textContent=ch.name;
-  Array.from(mw.children).forEach(el=>{ if(!el.classList.contains('ddiv')) el.remove(); });
-  (ch.posts||[]).forEach(p=>renderChannelPost(p,mw));
-  mw.scrollTop=mw.scrollHeight;
-  if(ch.myRole==='owner'){
-    setupInput(()=>sendChannelPost(id));
-    g('mi').placeholder='Написать в канал...';
-  } else {
-    g('ia').classList.add('hidden');
-  }
-}
+
 function renderChannelPost(p,wrap){
   const div=document.createElement('div'); div.className='mg me'; div.dataset.id=p.id;
   div.innerHTML=`<div class="bub" style="max-width:85%;background:var(--s2);color:var(--tx);border:1px solid var(--b1)">${esc(p.text)}<span class="bub-time">${tsStr(p.ts)}</span></div>`;
@@ -2256,6 +2223,595 @@ function _renderBotBub(m,mw){
   bub.innerHTML=formatted+`<span class="bub-time" style="display:block;font-size:10px;opacity:.5;margin-top:3px;text-align:${isMe?'right':'left'}">${tsStr(m.ts)}</span>`;
   grp.appendChild(bub); mw.appendChild(grp);
 }
+
+
+// ════════════════════════════════════════════════════
+//  ПРИВАТНЫЙ АККАУНТ
+// ════════════════════════════════════════════════════
+// Храним настройки приватности в localStorage и ME
+function isAccountPrivate(){
+  return localStorage.getItem('nx_private')==='1' || ME?.private===true;
+}
+
+function openPrivacySettings(){
+  closeDrawer();
+  const isPriv = isAccountPrivate();
+  const modal = document.createElement('div');
+  modal.className='modal on'; modal.id='privacy-modal';
+  modal.innerHTML=`<div class="mbox">
+    <div class="m-title">🔒 Приватность</div>
+    <div class="m-sub">Управляй тем, кто может тебя находить и писать</div>
+
+    <div class="tog-row">
+      <div class="tog-row-info">
+        <div class="tog-row-lbl">Приватный аккаунт</div>
+        <div class="tog-row-sub">Тебя не найдут через поиск. Писать смогут только те, кому ты сам отправил ссылку или написал первым.</div>
+      </div>
+      <div class="dr-toggle ${isPriv?'on':''}" id="priv-toggle" onclick="togglePrivacy(this)"><div class="dr-toggle-knob"></div></div>
+    </div>
+
+    <div class="tog-row" style="margin-top:8px">
+      <div class="tog-row-info">
+        <div class="tog-row-lbl">Моя ссылка для чата</div>
+        <div class="tog-row-sub">Поделись — друг попадёт в твой чат напрямую, даже если аккаунт приватный.</div>
+      </div>
+      <button onclick="showMyLink();closeModal('privacy-modal')" style="padding:7px 13px;background:rgba(79,138,255,.12);color:var(--ac);border:1px solid rgba(79,138,255,.2);border-radius:9px;font-family:var(--fu);font-size:9px;font-weight:700;cursor:pointer;flex-shrink:0">Скопировать</button>
+    </div>
+
+    <div class="m-err" id="priv-msg" style="margin-top:12px"></div>
+    <button class="mbtn mbtn-g" onclick="closeModal('privacy-modal')" style="margin-top:12px">Закрыть</button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+async function togglePrivacy(el){
+  const nowOn = el.classList.toggle('on');
+  localStorage.setItem('nx_private', nowOn?'1':'0');
+  // Sync with server if it supports the field
+  const d = await api('POST','/api/profile',{private:nowOn});
+  if(d?.ok) ME={...ME,...d.user};
+  const msg = g('priv-msg');
+  if(msg){
+    msg.className='m-err s';
+    msg.textContent = nowOn ? '🔒 Аккаунт теперь приватный' : '🌍 Аккаунт теперь публичный';
+    setTimeout(()=>{ msg.textContent=''; msg.className='m-err'; },2500);
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  КАНАЛЫ — ПРИВАТНЫЕ И ПУБЛИЧНЫЕ (расширение)
+// ════════════════════════════════════════════════════
+
+// Генератор короткого invite-кода (10 символов, URL-safe)
+function genInvite(){
+  const chars='ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz123456789';
+  let r='';
+  for(let i=0;i<10;i++) r+=chars[Math.floor(Math.random()*chars.length)];
+  return r;
+}
+
+// Глобальный реестр публичных каналов (localStorage, будет виден всем пользователям устройства)
+function getPubRegistry(){
+  return JSON.parse(localStorage.getItem('nx_pub_channels')||'[]');
+}
+function savePubRegistry(list){
+  localStorage.setItem('nx_pub_channels', JSON.stringify(list));
+}
+function registerPublicChannel(ch){
+  const list = getPubRegistry().filter(x=>x.id!==ch.id);
+  list.unshift({id:ch.id, name:ch.name, desc:ch.desc||'', emoji:ch.emoji||'📢', color:ch.color, slug:ch.slug||'', members:ch.members?.length||1, owner:ch.owner});
+  savePubRegistry(list.slice(0,100));
+}
+function unregisterPublicChannel(id){
+  savePubRegistry(getPubRegistry().filter(x=>x.id!==id));
+}
+
+// Переопределяем showCreateChannel с поддержкой типа и slug/invite
+function showCreateChannel(){
+  document.querySelectorAll('#ch-list-modal,#ch-create-modal').forEach(m=>m.remove());
+  const modal=document.createElement('div'); modal.className='modal on'; modal.id='ch-create-modal';
+  const emojis=['📢','🎮','💻','🎵','📸','🏆','💡','🔥','⚡','🌟','🎨','🤖','🌈','⚽','🍕'];
+  window._chEmoji='📢'; window._chColor=PAL[1]; window._chType='public';
+
+  modal.innerHTML=`<div class="mbox" style="max-height:85vh;overflow-y:auto">
+    <div class="m-title">Новый канал</div>
+
+    <!-- Type selector -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <div id="ch-type-pub" onclick="setChType('public',this)" style="padding:12px 10px;border-radius:12px;border:2px solid var(--ac);background:rgba(79,138,255,.08);cursor:pointer;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">🌍</div>
+        <div style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--ac)">Публичный</div>
+        <div style="font-size:10px;color:var(--sb);margin-top:2px">Виден в поиске</div>
+      </div>
+      <div id="ch-type-priv" onclick="setChType('private',this)" style="padding:12px 10px;border-radius:12px;border:2px solid var(--b1);background:transparent;cursor:pointer;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">🔒</div>
+        <div style="font-family:var(--fu);font-size:10px;font-weight:700;color:var(--mu)">Приватный</div>
+        <div style="font-size:10px;color:var(--mu);margin-top:2px">Только по ссылке</div>
+      </div>
+    </div>
+
+    <div class="fi-g"><label class="fi-lbl">Название</label><input class="fi" id="cn-name" placeholder="Мой канал" maxlength="40"/></div>
+    <div class="fi-g"><label class="fi-lbl">Описание</label><input class="fi" id="cn-desc" placeholder="О чём канал..." maxlength="120"/></div>
+
+    <!-- Public slug -->
+    <div class="fi-g" id="cn-slug-wrap">
+      <label class="fi-lbl">Адрес канала <span class="fi-hint">только a–z 0–9 _</span></label>
+      <div class="fi-wr"><span class="fi-pre" style="font-size:12px">@</span><input class="fi fp" id="cn-slug" placeholder="mychannel" maxlength="32" oninput="validateSlug(this)"/></div>
+      <div class="fst" id="cn-slug-s"></div>
+      <div style="font-size:10px;color:var(--mu);margin-top:4px">Люди смогут найти канал по этому адресу</div>
+    </div>
+
+    <div class="fi-g"><label class="fi-lbl">Эмодзи</label>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">${emojis.map(e=>`<div onclick="selectChEmoji(this,'${e}')" data-e="${e}" class="ch-em-opt" style="width:36px;height:36px;border-radius:9px;background:var(--s3);border:2px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:border-color .14s">${e}</div>`).join('')}</div>
+    </div>
+    <div class="fi-g"><label class="fi-lbl">Цвет</label>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">${PAL.map((c,i)=>`<div onclick="selectChColor(this,'${c}')" class="ch-col-opt" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer;outline:${i===1?'3px solid #fff':'none'};outline-offset:2px"></div>`).join('')}</div>
+    </div>
+    <div class="m-err" id="cn-err"></div>
+    <button class="mbtn" onclick="createChannelNew()">Создать канал</button>
+    <button class="mbtn mbtn-g" onclick="document.getElementById('ch-create-modal').remove();showChannelList()">Назад</button>
+  </div>`;
+  document.body.appendChild(modal);
+  // pre-select first emoji & color
+  modal.querySelector('.ch-em-opt').style.borderColor='var(--ac)';
+  modal.querySelectorAll('.ch-col-opt')[1].style.outline='3px solid #fff';
+}
+
+function setChType(type, el){
+  window._chType=type;
+  const pub=g('ch-type-pub'), priv=g('ch-type-priv');
+  pub.style.border=type==='public'?'2px solid var(--ac)':'2px solid var(--b1)';
+  pub.style.background=type==='public'?'rgba(79,138,255,.08)':'transparent';
+  pub.querySelector('div:nth-child(2)').style.color=type==='public'?'var(--ac)':'var(--mu)';
+  priv.style.border=type==='private'?'2px solid var(--a2)':'2px solid var(--b1)';
+  priv.style.background=type==='private'?'rgba(139,92,246,.08)':'transparent';
+  priv.querySelector('div:nth-child(2)').style.color=type==='private'?'var(--a2)':'var(--mu)';
+  const slugWrap=g('cn-slug-wrap');
+  if(slugWrap) slugWrap.style.display=type==='public'?'':'none';
+}
+
+function validateSlug(inp){
+  const v=inp.value.toLowerCase().replace(/[^a-z0-9_]/g,'');
+  inp.value=v;
+  const s=g('cn-slug-s');
+  if(!v){ s.className='fst'; s.innerHTML=''; return; }
+  if(v.length<3){ s.className='fst e'; s.innerHTML=xI()+' Мин. 3 символа'; return; }
+  // Check uniqueness in local registry
+  const taken=getPubRegistry().find(c=>c.slug===v);
+  if(taken){ s.className='fst e'; s.innerHTML=xI()+' Уже занят'; return; }
+  s.className='fst s'; s.innerHTML=chI()+' Доступен';
+}
+
+function selectChEmoji(el, em){
+  window._chEmoji=em;
+  document.querySelectorAll('.ch-em-opt').forEach(x=>x.style.borderColor='var(--b1)');
+  el.style.borderColor='var(--ac)';
+}
+function selectChColor(el, c){
+  window._chColor=c;
+  document.querySelectorAll('.ch-col-opt').forEach(x=>x.style.outline='none');
+  el.style.outline='3px solid #fff';
+  el.style.outlineOffset='2px';
+}
+
+function createChannelNew(){
+  const name=g('cn-name').value.trim();
+  if(!name){ g('cn-err').className='m-err e'; g('cn-err').textContent='Введи название'; return; }
+  const type=window._chType||'public';
+  const slug=type==='public'?(g('cn-slug')?.value||'').trim().toLowerCase():'';
+  if(type==='public'&&slug.length<3){ g('cn-err').className='m-err e'; g('cn-err').textContent='Укажи адрес канала (мин. 3 символа)'; return; }
+  if(type==='public'&&getPubRegistry().find(c=>c.slug===slug)){ g('cn-err').className='m-err e'; g('cn-err').textContent='Такой адрес уже занят'; return; }
+
+  const id='ch_'+uid();
+  const invite=genInvite();
+  const ch={
+    id, name, desc:g('cn-desc').value.trim(),
+    emoji:window._chEmoji||'📢', color:window._chColor||PAL[1],
+    owner:ME.username, members:[ME.username], posts:[],
+    myRole:'owner', type, slug, invite,
+  };
+  channels[id]=ch;
+  saveChannels();
+  if(type==='public') registerPublicChannel(ch);
+  g('ch-create-modal').remove();
+  openChannel(id);
+  // Show the invite/link right away
+  setTimeout(()=>showChannelLink(id),400);
+}
+
+// Improved showChannelList with discovery tab
+function showChannelList(){
+  document.querySelectorAll('#ch-list-modal').forEach(m=>m.remove());
+  const modal=document.createElement('div'); modal.className='modal on'; modal.id='ch-list-modal';
+  const myChannels=Object.values(channels);
+  const pubList=getPubRegistry();
+
+  modal.innerHTML=`<div class="mbox" style="max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="m-title" style="margin:0">📢 Каналы</div>
+      <button class="mbtn" style="width:auto;padding:8px 14px;margin:0" onclick="showCreateChannel()">+ Создать</button>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+      <button id="cht-my" onclick="chListTab('my')" style="padding:8px;border-radius:9px;border:1.5px solid var(--ac);background:rgba(79,138,255,.1);font-family:var(--fu);font-size:9px;font-weight:700;color:var(--ac);cursor:pointer">МОИ (${myChannels.length})</button>
+      <button id="cht-disc" onclick="chListTab('disc')" style="padding:8px;border-radius:9px;border:1.5px solid var(--b1);background:transparent;font-family:var(--fu);font-size:9px;font-weight:700;color:var(--mu);cursor:pointer">ОБЗОР (${pubList.length})</button>
+    </div>
+
+    <!-- Search -->
+    <div style="position:relative;margin-bottom:12px">
+      <input id="ch-srch" class="srch-inp" style="width:100%;padding-left:12px" placeholder="Поиск по каналам..." oninput="filterChannelList()"/>
+    </div>
+
+    <!-- My channels -->
+    <div id="ch-panel-my" style="display:flex;flex-direction:column;gap:8px">
+      ${!myChannels.length?`<div style="text-align:center;color:var(--sb);padding:20px;font-size:13px">У тебя пока нет каналов.<br>Создай или найди в Обзоре!</div>`:
+        myChannels.map(c=>chCardHTML(c,true)).join('')}
+    </div>
+
+    <!-- Discovery -->
+    <div id="ch-panel-disc" style="display:none;flex-direction:column;gap:8px">
+      ${!pubList.length?`<div style="text-align:center;color:var(--sb);padding:20px;font-size:13px">Публичных каналов пока нет.<br>Создай первый!</div>`:
+        pubList.map(c=>chDiscCardHTML(c)).join('')}
+    </div>
+
+    <button class="mbtn mbtn-g" onclick="g('ch-list-modal').remove()" style="margin-top:14px">Закрыть</button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function chCardHTML(c, isOwner){
+  const badge=c.type==='private'
+    ?`<span class="ch-disc-badge priv">🔒 Приватный</span>`
+    :`<span class="ch-disc-badge pub">🌍 Публичный</span>`;
+  return `<div class="ch-disc-card" onclick="openChannel('${c.id}')">
+    <div class="ch-disc-av" style="background:${c.color}22;color:${c.color}">${c.emoji||'📢'}</div>
+    <div class="ch-disc-info">
+      <div class="ch-disc-name">${c.name}</div>
+      <div class="ch-disc-meta">${badge}<span>${c.members?.length||1} подписчиков</span>${c.myRole==='owner'?'<span style="color:var(--ac);font-family:var(--fu);font-size:8px">ВЛАДЕЛЕЦ</span>':''}</div>
+    </div>
+    ${isOwner&&c.type==='private'?`<button onclick="event.stopPropagation();showChannelLink('${c.id}')" style="padding:6px 10px;background:rgba(139,92,246,.12);color:var(--a2);border:1px solid rgba(139,92,246,.2);border-radius:8px;font-family:var(--fu);font-size:9px;font-weight:700;cursor:pointer;flex-shrink:0">🔗 Ссылка</button>`:''}
+  </div>`;
+}
+
+function chDiscCardHTML(c){
+  const joined=!!channels[c.id];
+  return `<div class="ch-disc-card" data-chname="${c.name.toLowerCase()} ${(c.slug||'').toLowerCase()}">
+    <div class="ch-disc-av" style="background:${c.color}22;color:${c.color}">${c.emoji||'📢'}</div>
+    <div class="ch-disc-info">
+      <div class="ch-disc-name">${c.name}</div>
+      <div class="ch-disc-meta"><span class="ch-disc-badge pub">🌍</span><span>@${c.slug||''}</span><span>${c.members||1} подписчиков</span></div>
+      ${c.desc?`<div style="font-size:11px;color:var(--sb);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.desc}</div>`:''}
+    </div>
+    <button class="ch-join-btn ${joined?'joined':'join'}" onclick="event.stopPropagation();joinPublicChannel('${c.id}',this)">
+      ${joined?'✓ В канале':'Вступить'}
+    </button>
+  </div>`;
+}
+
+function chListTab(tab){
+  const my=g('ch-panel-my'), disc=g('ch-panel-disc');
+  const btnMy=g('cht-my'), btnDisc=g('cht-disc');
+  if(tab==='my'){
+    my.style.display='flex'; disc.style.display='none';
+    btnMy.style.borderColor='var(--ac)'; btnMy.style.background='rgba(79,138,255,.1)'; btnMy.style.color='var(--ac)';
+    btnDisc.style.borderColor='var(--b1)'; btnDisc.style.background='transparent'; btnDisc.style.color='var(--mu)';
+  } else {
+    my.style.display='none'; disc.style.display='flex';
+    btnDisc.style.borderColor='var(--ac)'; btnDisc.style.background='rgba(79,138,255,.1)'; btnDisc.style.color='var(--ac)';
+    btnMy.style.borderColor='var(--b1)'; btnMy.style.background='transparent'; btnMy.style.color='var(--mu)';
+  }
+}
+
+function filterChannelList(){
+  const q=(g('ch-srch')?.value||'').toLowerCase();
+  document.querySelectorAll('#ch-panel-disc .ch-disc-card[data-chname]').forEach(el=>{
+    el.style.display=(!q||el.dataset.chname.includes(q))?'':'none';
+  });
+}
+
+function joinPublicChannel(id, btn){
+  const pub=getPubRegistry().find(c=>c.id===id);
+  if(!pub){ toast('Канал не найден'); return; }
+  if(channels[id]){ openChannel(id); g('ch-list-modal')?.remove(); return; }
+  channels[id]={
+    id, name:pub.name, desc:pub.desc||'', emoji:pub.emoji||'📢', color:pub.color,
+    owner:pub.owner, members:[...(pub.members?[]:[]),(ME.username)], posts:[], myRole:'member',
+    type:'public', slug:pub.slug||'',
+  };
+  // Update member count in registry
+  const list=getPubRegistry().map(c=>c.id===id?{...c,members:(c.members||1)+1}:c);
+  savePubRegistry(list);
+  saveChannels();
+  if(btn){ btn.textContent='✓ В канале'; btn.className='ch-join-btn joined'; }
+  toast(`✅ Вступил в канал ${pub.name}`);
+  g('ch-list-modal')?.remove();
+  openChannel(id);
+}
+
+function showChannelLink(id){
+  const ch=channels[id]; if(!ch) return;
+  const origin=location.origin+location.pathname;
+  const link=ch.type==='public'
+    ?`${origin}?ch=@${ch.slug}`
+    :`${origin}?chi=${ch.invite}`;
+  const title=ch.type==='public'?`Публичный канал @${ch.slug}`:`Приватный канал — ссылка-приглашение`;
+  const sub=ch.type==='public'
+    ?`Любой может найти через поиск или открыть по ссылке`
+    :`Доступ только по этой ссылке — не делись с лишними.`;
+  showLink(title, sub, link);
+}
+
+// Improved openChannel — override the old one fully
+function openChannel(id){
+  document.querySelectorAll('.modal').forEach(m=>m.remove());
+  const ch=channels[id]; if(!ch) return;
+  curChat=null; document.body.classList.add('chat-open');
+  g('ch-ec').classList.add('hidden');
+  const hdr=g('ch-hdr'); hdr.classList.remove('hidden');
+  const av=g('ch-av'); av.textContent=ch.emoji||'📢'; av.style.background=ch.color+'22'; av.style.color=ch.color;
+  g('ch-nm').textContent=ch.name;
+  g('ch-id').textContent=(ch.type==='private'?'🔒 Приватный':'🌍 @'+(ch.slug||'публичный'));
+  g('ch-st').textContent=`${ch.members?.length||1} подписчиков`; g('ch-st').style.color='var(--sb)';
+
+  // Header actions: show link button for owner
+  const acts=g('ch-acts');
+  acts.innerHTML=`
+    <button class="hbtn" onclick="showChannelLink('${id}')" title="Ссылка на канал">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    ${ch.myRole==='owner'?`<button class="hbtn" onclick="showChannelSettings('${id}')" title="Настройки канала">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>`:''}
+  `;
+
+  const mw=g('mw'); mw.classList.remove('hidden');
+  g('dlbl').textContent=ch.name;
+  Array.from(mw.children).forEach(el=>{ if(!el.classList.contains('ddiv')) el.remove(); });
+  (ch.posts||[]).forEach(p=>renderChannelPost(p,mw));
+  mw.scrollTop=mw.scrollHeight;
+
+  if(ch.myRole==='owner'){
+    setupInput(()=>sendChannelPost(id));
+    g('mi').placeholder='Написать в канал...';
+  } else {
+    g('ia').classList.add('hidden');
+    // Show member bar instead
+    const existing=document.querySelector('.ch-member-bar');
+    if(existing) existing.remove();
+    const bar=document.createElement('div');
+    bar.className='ch-member-bar';
+    bar.style.cssText='padding:10px 14px;background:var(--s2);border-top:1px solid var(--b1);text-align:center;font-size:12px;color:var(--sb);flex-shrink:0';
+    bar.innerHTML=`📖 Вы подписчик · <span style="color:var(--rd);cursor:pointer;text-decoration:underline" onclick="leaveChannel('${id}')">Покинуть канал</span>`;
+    g('mw').after(bar);
+  }
+}
+
+function leaveChannel(id){
+  if(!confirm('Покинуть канал?')) return;
+  const ch=channels[id]; if(!ch) return;
+  if(ch.type==='public'){
+    const list=getPubRegistry().map(c=>c.id===id?{...c,members:Math.max(1,(c.members||1)-1)}:c);
+    savePubRegistry(list);
+  }
+  delete channels[id];
+  saveChannels();
+  mobileBack();
+  toast('Вы покинули канал');
+}
+
+function showChannelSettings(id){
+  const ch=channels[id]; if(!ch||ch.myRole!=='owner') return;
+  const modal=document.createElement('div'); modal.className='modal on'; modal.id='ch-settings-modal';
+  modal.innerHTML=`<div class="mbox">
+    <div class="m-title">⚙️ Настройки канала</div>
+    <div class="fi-g"><label class="fi-lbl">Название</label><input class="fi" id="chs-name" value="${ch.name}" maxlength="40"/></div>
+    <div class="fi-g"><label class="fi-lbl">Описание</label><input class="fi" id="chs-desc" value="${ch.desc||''}" maxlength="120"/></div>
+
+    <div style="margin:12px 0">
+      <div class="fi-lbl" style="margin-bottom:8px">Тип канала</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div id="chs-type-pub" onclick="setChsType('public')" style="padding:10px;border-radius:10px;border:2px solid ${ch.type==='public'?'var(--ac)':'var(--b1)'};background:${ch.type==='public'?'rgba(79,138,255,.08)':'transparent'};cursor:pointer;text-align:center">
+          <div style="font-size:16px">🌍</div><div style="font-family:var(--fu);font-size:9px;font-weight:700;color:${ch.type==='public'?'var(--ac)':'var(--mu)'}">Публичный</div>
+        </div>
+        <div id="chs-type-priv" onclick="setChsType('private')" style="padding:10px;border-radius:10px;border:2px solid ${ch.type==='private'?'var(--a2)':'var(--b1)'};background:${ch.type==='private'?'rgba(139,92,246,.08)':'transparent'};cursor:pointer;text-align:center">
+          <div style="font-size:16px">🔒</div><div style="font-family:var(--fu);font-size:9px;font-weight:700;color:${ch.type==='private'?'var(--a2)':'var(--mu)'}">Приватный</div>
+        </div>
+      </div>
+    </div>
+
+    ${ch.type==='public'?`<div class="fi-g"><label class="fi-lbl">Адрес @</label><input class="fi" id="chs-slug" value="${ch.slug||''}" maxlength="32"/></div>`:''}
+
+    <div style="margin-top:12px">
+      <button class="mbtn" onclick="saveChannelSettings('${id}')">Сохранить</button>
+      <button class="mbtn" style="background:rgba(255,79,114,.12);color:var(--rd);border:1px solid rgba(255,79,114,.2);box-shadow:none;margin-top:8px" onclick="deleteChannel('${id}')">🗑 Удалить канал</button>
+      <button class="mbtn mbtn-g" onclick="closeModal('ch-settings-modal')">Закрыть</button>
+    </div>
+  </div>`;
+  window._chsType=ch.type;
+  document.body.appendChild(modal);
+}
+
+function setChsType(type){
+  window._chsType=type;
+  const pub=g('chs-type-pub'), priv=g('chs-type-priv');
+  if(!pub||!priv) return;
+  pub.style.border=type==='public'?'2px solid var(--ac)':'2px solid var(--b1)';
+  pub.style.background=type==='public'?'rgba(79,138,255,.08)':'transparent';
+  pub.querySelector('div:nth-child(2)').style.color=type==='public'?'var(--ac)':'var(--mu)';
+  priv.style.border=type==='private'?'2px solid var(--a2)':'2px solid var(--b1)';
+  priv.style.background=type==='private'?'rgba(139,92,246,.08)':'transparent';
+  priv.querySelector('div:nth-child(2)').style.color=type==='private'?'var(--a2)':'var(--mu)';
+}
+
+async function saveChannelSettings(id){
+  const ch=channels[id]; if(!ch) return;
+  const oldType=ch.type;
+  ch.name=(g('chs-name')?.value||ch.name).trim()||ch.name;
+  ch.desc=(g('chs-desc')?.value||'').trim();
+  ch.type=window._chsType||ch.type;
+  if(ch.type==='public'){
+    const newSlug=(g('chs-slug')?.value||ch.slug||'').trim().toLowerCase();
+    if(newSlug!==ch.slug){
+      const taken=getPubRegistry().find(c=>c.id!==id&&c.slug===newSlug);
+      if(taken){ toast('❌ Адрес уже занят'); return; }
+      if(newSlug.length<3){ toast('❌ Адрес мин. 3 символа'); return; }
+    }
+    ch.slug=newSlug||ch.slug;
+  }
+  if(oldType==='public') unregisterPublicChannel(id);
+  if(ch.type==='public') registerPublicChannel(ch);
+  channels[id]=ch;
+  saveChannels();
+  closeModal('ch-settings-modal');
+  openChannel(id);
+  toast('✅ Канал обновлён');
+}
+
+function deleteChannel(id){
+  const ch=channels[id]; if(!ch) return;
+  if(!confirm(`Удалить канал "${ch.name}"? Это необратимо.`)) return;
+  if(ch.type==='public') unregisterPublicChannel(id);
+  delete channels[id];
+  saveChannels();
+  closeModal('ch-settings-modal');
+  mobileBack();
+  toast('Канал удалён');
+}
+
+// ════════════════════════════════════════════════════
+//  HANDLE INVITE/CHANNEL LINKS ON LOAD
+// ════════════════════════════════════════════════════
+function handleDeepLinks(){
+  const params=new URLSearchParams(location.search);
+  // Channel invite by code
+  const chi=params.get('chi');
+  if(chi){
+    history.replaceState({},'',location.pathname);
+    // Find channel by invite code in local channels first
+    const found=Object.values(channels).find(c=>c.invite===chi);
+    if(found){ openChannel(found.id); return; }
+    // Show join-by-invite screen
+    showInviteJoinScreen(chi);
+    return;
+  }
+  // Public channel by slug
+  const ch=params.get('ch');
+  if(ch){
+    history.replaceState({},'',location.pathname);
+    const slug=ch.replace(/^@/,'').toLowerCase();
+    const pub=getPubRegistry().find(c=>c.slug===slug);
+    if(pub){
+      if(channels[pub.id]){ openChannel(pub.id); return; }
+      showPublicJoinScreen(pub);
+    } else {
+      toast('Канал не найден');
+    }
+  }
+}
+
+function showInviteJoinScreen(inviteCode){
+  // Search all local channels for this code
+  const ch=Object.values(channels).find(c=>c.invite===inviteCode);
+  const screen=document.createElement('div'); screen.id='join-screen'; screen.className='on';
+  screen.innerHTML=`<div class="js-box">
+    <div class="js-av" style="background:${ch?ch.color+'22':'rgba(139,92,246,.12)'};color:${ch?ch.color:'var(--a2)'};font-size:32px">${ch?ch.emoji||'📢':'🔒'}</div>
+    <div class="js-name">${ch?ch.name:'Приватный канал'}</div>
+    <div class="js-meta">🔒 Приватный · ${ch?ch.members?.length||1:0} подписчиков</div>
+    <div class="js-desc">${ch?ch.desc||'Вы приглашены в этот канал.':'Ссылка-приглашение. Вступите чтобы читать канал.'}</div>
+    ${ch
+      ?`<button class="mbtn" onclick="acceptInvite('${inviteCode}')">Вступить в канал</button>`
+      :`<div style="color:var(--rd);font-size:12px;margin-bottom:12px">Ссылка недействительна или канал не существует.</div>`
+    }
+    <button class="mbtn mbtn-g" onclick="this.closest('#join-screen').remove()">Отмена</button>
+  </div>`;
+  document.body.appendChild(screen);
+}
+
+function acceptInvite(inviteCode){
+  const ch=Object.values(channels).find(c=>c.invite===inviteCode);
+  if(!ch){ toast('Канал не найден'); return; }
+  if(!channels[ch.id]){
+    channels[ch.id]={...ch, myRole:'member'};
+    saveChannels();
+  }
+  document.getElementById('join-screen')?.remove();
+  openChannel(ch.id);
+}
+
+function showPublicJoinScreen(pub){
+  const alreadyIn=!!channels[pub.id];
+  const screen=document.createElement('div'); screen.id='join-screen'; screen.className='on';
+  screen.innerHTML=`<div class="js-box">
+    <div class="js-av" style="background:${pub.color}22;color:${pub.color}">${pub.emoji||'📢'}</div>
+    <div class="js-name">${pub.name}</div>
+    <div class="js-meta">🌍 @${pub.slug} · ${pub.members||1} подписчиков</div>
+    <div class="js-desc">${pub.desc||'Публичный канал в Nexus.'}</div>
+    ${alreadyIn
+      ?`<button class="mbtn" onclick="openChannel('${pub.id}');document.getElementById('join-screen').remove()">Открыть канал</button>`
+      :`<button class="mbtn" onclick="joinPublicChannelFromScreen('${pub.id}')">Вступить</button>`
+    }
+    <button class="mbtn mbtn-g" onclick="this.closest('#join-screen').remove()">Отмена</button>
+  </div>`;
+  document.body.appendChild(screen);
+}
+
+function joinPublicChannelFromScreen(id){
+  joinPublicChannel(id, null);
+  document.getElementById('join-screen')?.remove();
+}
+
+// Patch enterApp to run deep link handler and add privacy item to drawer
+const _origEnterApp = enterApp;
+enterApp = function(){
+  _origEnterApp();
+  setTimeout(()=>{
+    // Add privacy item to drawer if not already there
+    if(!document.getElementById('dr-privacy-item')){
+      const dr=document.querySelector('#drawer .dr-items');
+      if(dr){
+        const sep=dr.querySelector('.dr-sep');
+        const item=document.createElement('div');
+        item.id='dr-privacy-item';
+        item.className='dr-item';
+        item.onclick=openPrivacySettings;
+        item.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Приватность`;
+        if(sep) dr.insertBefore(item, sep);
+        else dr.appendChild(item);
+      }
+    }
+    handleDeepLinks();
+  },600);
+};
+
+// Patch search to hide private accounts
+const _origSrch = _srch;
+_srch = async function(){
+  const q=g('srch').value.trim(), srd=g('srd');
+  if(!q){ srd.classList.remove('on'); srd.innerHTML=''; return; }
+  srd.innerHTML=`<div class="srd-0">Поиск...</div>`; srd.classList.add('on');
+  const res=await api('GET',`/api/users?q=${encodeURIComponent(q)}`);
+  const list=(res||[]).filter(u=>u.username!==ME.username);
+  srd.innerHTML='';
+  if(!list.length){ srd.innerHTML=`<div class="srd-0">Не найдено</div>`; return; }
+  const lbl=document.createElement('div'); lbl.className='srd-lbl'; lbl.textContent='Найдено'; srd.appendChild(lbl);
+  list.slice(0,6).forEach(u=>{
+    cU(u);
+    const el=document.createElement('div'); el.className='srd-item';
+    const privBadge=u.private?`<span class="priv-lock"><svg viewBox="0 0 24 24"><path d="M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2zM7 11V7a5 5 0 0110 0v4"/></svg>Приватный</span>`:'';
+    el.innerHTML=`<div class="srd-av" style="background:${u.color}22;color:${u.color}">${ini(u.nickname)}</div>
+      <div style="flex:1;min-width:0"><div class="srd-nm">${u.nickname}${privBadge}</div><div class="srd-mt"><span>@${u.username}</span><span class="srd-uuid">${u.uuid}</span></div></div>`;
+    el.onclick=()=>{
+      if(u.private && u.username!==ME.username){
+        toast('🔒 Аккаунт приватный — напишите этому пользователю через его ссылку');
+        srd.classList.remove('on'); srd.innerHTML=''; g('srch').value='';
+        return;
+      }
+      srd.classList.remove('on'); srd.innerHTML=''; g('srch').value=''; openChat(u.username);
+    };
+    srd.appendChild(el);
+  });
+};
 
 </script>
 </body>
