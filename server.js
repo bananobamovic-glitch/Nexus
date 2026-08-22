@@ -1,9 +1,10 @@
 /**
- * NEXUS SERVER v6
- * - GitHub Gist для хранения данных
- * - TURN сервер через metered.ca (бесплатно) для звонков через интернет
- * - WebSocket ping/pong чтобы соединение не рвалось
- * - UA tracking для сессий
+ * NEXUS SERVER v7
+ * + Приватные аккаунты (скрыты из поиска)
+ * + Каналы на сервере (публичные + приватные по инвайту)
+ * + /api/invite/:code — резолв приватных ссылок
+ * + /api/channels — список публичных каналов
+ * + /api/channels/join — вступить в канал
  */
 
 const http   = require('http');
@@ -19,8 +20,12 @@ const SESSION_TTL  = 365 * 24 * 60 * 60 * 1000;
 
 // ─── In-memory DB ─────────────────────────────────
 let db = {
-  users: {}, sessions: {}, messages: {}, counter: 0,
-  gistId: process.env.GIST_ID || '',
+  users:    {},
+  sessions: {},
+  messages: {},
+  channels: {},   // id → channel object
+  counter:  0,
+  gistId:   process.env.GIST_ID || '',
 };
 
 // ─── GitHub Gist ───────────────────────────────────
@@ -57,7 +62,11 @@ function schedSave() {
 async function saveGist() {
   if (!GITHUB_TOKEN) return;
   const slim = {
-    users: db.users, sessions: db.sessions, counter: db.counter, messages: {},
+    users:    db.users,
+    sessions: db.sessions,
+    counter:  db.counter,
+    channels: db.channels,
+    messages: {},
   };
   Object.keys(db.messages).forEach(r => {
     slim.messages[r] = db.messages[r].slice(-100);
@@ -89,7 +98,8 @@ async function loadGist() {
     db.sessions = p.sessions || {};
     db.counter  = p.counter  || 0;
     db.messages = p.messages || {};
-    console.log(`✅ Gist загружен: ${Object.keys(db.users).length} users`);
+    db.channels = p.channels || {};
+    console.log(`✅ Gist загружен: ${Object.keys(db.users).length} users, ${Object.keys(db.channels).length} channels`);
   } catch(e) { console.error('Gist parse error:', e.message); }
 }
 
@@ -99,10 +109,17 @@ const newSalt  = () => crypto.randomBytes(16).toString('hex');
 const newToken = () => crypto.randomBytes(32).toString('hex');
 const roomId   = (a, b) => [a, b].sort().join('|');
 
+// Генерация короткого invite-кода (10 символов)
+function genInvite() {
+  const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz123456789';
+  let r = '';
+  for (let i = 0; i < 10; i++) r += chars[Math.floor(Math.random() * chars.length)];
+  return r;
+}
+
 // ─── Sessions ─────────────────────────────────────
 function createSession(username, ua) {
   const token = newToken();
-  // Keep max 10 sessions per user
   const userSess = Object.entries(db.sessions)
     .filter(([,s]) => s.username === username)
     .sort(([,a],[,b]) => b.ts - a.ts);
@@ -129,6 +146,14 @@ function safeUser(u) {
   return safe;
 }
 
+// Safe channel (strip posts for listings)
+function safeChannel(ch, withPosts = false) {
+  if (!ch) return null;
+  const { posts, ...meta } = ch;
+  if (withPosts) return { ...meta, posts: posts || [] };
+  return { ...meta, postCount: (posts || []).length };
+}
+
 // ─── Messages ─────────────────────────────────────
 function getRoom(a, b) {
   const r = roomId(a, b);
@@ -151,24 +176,39 @@ function markRoomRead(userA, userB) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,PATCH,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // ── Статика ─────────────────────────────────────
   if (!url.pathname.startsWith('/api/')) {
+    // Приватный инвайт: /Hv60KsH2Vz  (10 симв)
+    // Редиректим на фронт с параметром
+    const invMatch = url.pathname.match(/^\/([A-Za-z0-9]{10})$/);
+    if (invMatch) {
+      const code = invMatch[1];
+      const ch = Object.values(db.channels).find(c => c.invite === code);
+      if (ch) {
+        // Редирект на SPA с параметром chi=code
+        res.writeHead(302, { 'Location': `/?chi=${code}` });
+        res.end();
+        return;
+      }
+    }
     if (url.pathname === '/manifest.json') return serve(res, 'manifest.json');
-    if (url.pathname === '/sw.js') return serve(res, 'sw.js');
-    if (url.pathname === '/icon-192.png') return serve(res, 'icon-192.png');
+    if (url.pathname === '/sw.js')         return serve(res, 'sw.js');
+    if (url.pathname === '/icon-192.png')  return serve(res, 'icon-192.png');
     return serve(res, 'index.html');
   }
 
   let body = '';
   req.on('data', d => body += d);
   req.on('end', () => {
-    const data = body ? (() => { try { return JSON.parse(body); } catch { return {}; } })() : {};
+    const data  = body ? (() => { try { return JSON.parse(body); } catch { return {}; } })() : {};
     const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
-    const ua = req.headers['user-agent'] || 'Unknown';
+    const ua    = req.headers['user-agent'] || 'Unknown';
 
-    // POST /api/register
+    // ── POST /api/register ────────────────────────
     if (req.method === 'POST' && url.pathname === '/api/register') {
       const { username, nickname, visibleName, color, password } = data;
       if (!username || !nickname || !password) return send(res, 400, { error: 'Заполни все поля' });
@@ -185,12 +225,13 @@ const server = http.createServer((req, res) => {
         color: color || '#4f8aff',
         salt, passwordHash: hashPw(password, salt),
         createdAt: Date.now(), lastSeen: Date.now(),
+        private: false,   // ← приватность аккаунта
       };
       db.users[uname] = user; schedSave();
       return send(res, 200, { ok: true, token: createSession(uname, ua), user: safeUser(user) });
     }
 
-    // POST /api/login
+    // ── POST /api/login ───────────────────────────
     if (req.method === 'POST' && url.pathname === '/api/login') {
       const { username, password } = data;
       if (!username || !password) return send(res, 400, { error: 'Введи логин и пароль' });
@@ -203,7 +244,7 @@ const server = http.createServer((req, res) => {
       return send(res, 200, { ok: true, token: createSession(user.username, ua), user: safeUser(user) });
     }
 
-    // GET /api/me
+    // ── GET /api/me ───────────────────────────────
     if (req.method === 'GET' && url.pathname === '/api/me') {
       const user = validateSession(token);
       if (!user) return send(res, 401, { error: 'Сессия истекла' });
@@ -211,23 +252,32 @@ const server = http.createServer((req, res) => {
       return send(res, 200, { ok: true, user: safeUser(user) });
     }
 
-    // POST /api/logout
+    // ── POST /api/logout ──────────────────────────
     if (req.method === 'POST' && url.pathname === '/api/logout') {
       if (token) { delete db.sessions[token]; schedSave(); }
       return send(res, 200, { ok: true });
     }
 
-    // GET /api/users?q=
+    // ── GET /api/users?q= ─────────────────────────
+    // Приватные аккаунты НЕ видны в поиске чужим
     if (req.method === 'GET' && url.pathname === '/api/users') {
+      const me = validateSession(token); // может быть null — анонимный запрос
+      const myUsername = me?.username || null;
       const q = (url.searchParams.get('q') || '').toLowerCase().replace(/^[@#]/, '');
       if (!q) return send(res, 400, { error: 'Empty' });
-      const list = Object.values(db.users).filter(u =>
-        u.username?.includes(q) || u.uuid?.replace('#','').includes(q) || u.nickname?.toLowerCase().includes(q)
-      ).map(safeUser);
+      const list = Object.values(db.users).filter(u => {
+        // Всегда показываем самого себя
+        if (u.username === myUsername) return true;
+        // Приватный — скрыт из общего поиска
+        if (u.private) return false;
+        return u.username?.includes(q)
+          || u.uuid?.replace('#','').includes(q)
+          || u.nickname?.toLowerCase().includes(q);
+      }).map(safeUser);
       return send(res, 200, list.slice(0, 10));
     }
 
-    // GET /api/messages?with=
+    // ── GET /api/messages?with= ───────────────────
     if (req.method === 'GET' && url.pathname === '/api/messages') {
       const me = validateSession(token);
       if (!me) return send(res, 401, { error: 'Unauthorized' });
@@ -237,25 +287,27 @@ const server = http.createServer((req, res) => {
       return send(res, 200, getRoom(me.username, withUser));
     }
 
-    // POST /api/profile
+    // ── POST /api/profile ─────────────────────────
+    // Поддерживает поле private (булево)
     if (req.method === 'POST' && url.pathname === '/api/profile') {
       const user = validateSession(token);
       if (!user) return send(res, 401, { error: 'Unauthorized' });
       const { nickname, visibleName, color, password } = data;
-      if (nickname) user.nickname = nickname;
-      if (visibleName) user.visibleName = visibleName;
-      if (color) user.color = color;
+      if (nickname)     user.nickname     = nickname;
+      if (visibleName)  user.visibleName  = visibleName;
+      if (color)        user.color        = color;
+      if (typeof data.private === 'boolean') user.private = data.private;
       if (password) {
         if (password.length < 4) return send(res, 400, { error: 'Пароль минимум 4 символа' });
         const salt = newSalt();
-        user.salt = salt;
+        user.salt         = salt;
         user.passwordHash = hashPw(password, salt);
       }
       db.users[user.username] = user; schedSave();
       return send(res, 200, { ok: true, user: safeUser(user) });
     }
 
-    // GET /api/sessions
+    // ── GET /api/sessions ─────────────────────────
     if (req.method === 'GET' && url.pathname === '/api/sessions') {
       const user = validateSession(token);
       if (!user) return send(res, 401, { error: 'Unauthorized' });
@@ -266,7 +318,7 @@ const server = http.createServer((req, res) => {
       return send(res, 200, { ok: true, sessions });
     }
 
-    // POST /api/sessions/revoke
+    // ── POST /api/sessions/revoke ─────────────────
     if (req.method === 'POST' && url.pathname === '/api/sessions/revoke') {
       const user = validateSession(token);
       if (!user) return send(res, 401, { error: 'Unauthorized' });
@@ -275,7 +327,7 @@ const server = http.createServer((req, res) => {
       return send(res, 200, { ok: true });
     }
 
-    // POST /api/sessions/revoke-all
+    // ── POST /api/sessions/revoke-all ────────────
     if (req.method === 'POST' && url.pathname === '/api/sessions/revoke-all') {
       const user = validateSession(token);
       if (!user) return send(res, 401, { error: 'Unauthorized' });
@@ -286,31 +338,243 @@ const server = http.createServer((req, res) => {
       return send(res, 200, { ok: true });
     }
 
-    // GET /api/ice — TURN credentials
+    // ── GET /api/ice ──────────────────────────────
     if (req.method === 'GET' && url.pathname === '/api/ice') {
-      // Используем бесплатный публичный STUN + Open Relay TURN
       return send(res, 200, {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun.relay.metered.ca:80' },
-          {
-            urls: 'turn:global.relay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-          },
-          {
-            urls: 'turn:global.relay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-          },
-          {
-            urls: 'turns:global.relay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-          },
+          { urls: 'turn:global.relay.metered.ca:80',    username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:global.relay.metered.ca:443',   username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turns:global.relay.metered.ca:443',  username: 'openrelayproject', credential: 'openrelayproject' },
         ]
       });
+    }
+
+    // ════════════════════════════════════════════════
+    //  CHANNELS API
+    // ════════════════════════════════════════════════
+
+    // ── GET /api/channels ─────────────────────────
+    // Список публичных каналов (для discovery)
+    // ?q= — поиск по имени/slug
+    // ?slug= — точный поиск по slug
+    if (req.method === 'GET' && url.pathname === '/api/channels') {
+      const q    = (url.searchParams.get('q')    || '').toLowerCase().trim();
+      const slug = (url.searchParams.get('slug') || '').toLowerCase().trim();
+
+      let list = Object.values(db.channels).filter(c => c.type === 'public');
+
+      if (slug) {
+        list = list.filter(c => c.slug === slug);
+      } else if (q) {
+        list = list.filter(c =>
+          c.name?.toLowerCase().includes(q) ||
+          c.slug?.toLowerCase().includes(q) ||
+          c.desc?.toLowerCase().includes(q)
+        );
+      }
+
+      return send(res, 200, {
+        ok: true,
+        channels: list.sort((a,b) => (b.memberCount||0)-(a.memberCount||0))
+                      .slice(0, 30)
+                      .map(c => safeChannel(c)),
+      });
+    }
+
+    // ── POST /api/channels ────────────────────────
+    // Создать канал
+    if (req.method === 'POST' && url.pathname === '/api/channels') {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+
+      const { name, desc, emoji, color, type, slug } = data;
+      if (!name || name.trim().length < 1) return send(res, 400, { error: 'Укажи название канала' });
+
+      const chType = type === 'private' ? 'private' : 'public';
+
+      // Для публичного — проверяем slug
+      if (chType === 'public') {
+        const s = (slug || '').toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
+        if (s.length < 3) return send(res, 400, { error: 'Адрес канала минимум 3 символа' });
+        if (Object.values(db.channels).some(c => c.slug === s && c.type === 'public')) {
+          return send(res, 409, { error: 'Этот адрес уже занят' });
+        }
+      }
+
+      const id      = 'ch_' + crypto.randomBytes(8).toString('hex');
+      const invite  = genInvite();
+      const cleanSlug = chType === 'public'
+        ? (slug || '').toLowerCase().trim().replace(/[^a-z0-9_]/g, '')
+        : '';
+
+      const ch = {
+        id,
+        name:        name.trim(),
+        desc:        (desc || '').trim(),
+        emoji:       emoji  || '📢',
+        color:       color  || '#4f8aff',
+        type:        chType,
+        slug:        cleanSlug,
+        invite,                          // всегда генерируем — для приватного это единственный вход
+        owner:       me.username,
+        members:     [me.username],
+        memberCount: 1,
+        posts:       [],
+        createdAt:   Date.now(),
+      };
+
+      db.channels[id] = ch; schedSave();
+      return send(res, 200, { ok: true, channel: safeChannel(ch, true) });
+    }
+
+    // ── GET /api/channels/:id ─────────────────────
+    // Данные канала (с постами)
+    const chGetMatch = url.pathname.match(/^\/api\/channels\/([^/]+)$/);
+    if (req.method === 'GET' && chGetMatch) {
+      const id = chGetMatch[1];
+      const ch = db.channels[id];
+      if (!ch) return send(res, 404, { error: 'Канал не найден' });
+
+      // Приватный — проверяем членство
+      if (ch.type === 'private') {
+        const me = validateSession(token);
+        if (!me || !ch.members.includes(me.username)) {
+          return send(res, 403, { error: 'Нет доступа — нужна ссылка-приглашение' });
+        }
+      }
+
+      return send(res, 200, { ok: true, channel: safeChannel(ch, true) });
+    }
+
+    // ── PATCH /api/channels/:id ───────────────────
+    // Редактировать канал (только владелец)
+    const chPatchMatch = url.pathname.match(/^\/api\/channels\/([^/]+)$/);
+    if (req.method === 'PATCH' && chPatchMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const id = chPatchMatch[1];
+      const ch = db.channels[id];
+      if (!ch)                      return send(res, 404, { error: 'Канал не найден' });
+      if (ch.owner !== me.username) return send(res, 403, { error: 'Только владелец может редактировать' });
+
+      const { name, desc, emoji, color, type, slug } = data;
+      if (name)  ch.name  = name.trim();
+      if (desc !== undefined) ch.desc = desc.trim();
+      if (emoji) ch.emoji = emoji;
+      if (color) ch.color = color;
+
+      if (type && (type === 'public' || type === 'private')) {
+        const oldType = ch.type;
+        ch.type = type;
+        if (type === 'public' && slug) {
+          const s = slug.toLowerCase().trim().replace(/[^a-z0-9_]/g, '');
+          if (s.length >= 3) {
+            // Check uniqueness (excluding self)
+            const taken = Object.values(db.channels).find(c => c.id !== id && c.slug === s && c.type === 'public');
+            if (taken) return send(res, 409, { error: 'Адрес уже занят' });
+            ch.slug = s;
+          }
+        }
+        if (type === 'private') ch.slug = '';
+      }
+
+      db.channels[id] = ch; schedSave();
+      return send(res, 200, { ok: true, channel: safeChannel(ch) });
+    }
+
+    // ── DELETE /api/channels/:id ──────────────────
+    const chDelMatch = url.pathname.match(/^\/api\/channels\/([^/]+)$/);
+    if (req.method === 'DELETE' && chDelMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const id = chDelMatch[1];
+      const ch = db.channels[id];
+      if (!ch)                      return send(res, 404, { error: 'Не найден' });
+      if (ch.owner !== me.username) return send(res, 403, { error: 'Только владелец' });
+      delete db.channels[id]; schedSave();
+      return send(res, 200, { ok: true });
+    }
+
+    // ── POST /api/channels/:id/join ───────────────
+    // Вступить в канал (публичный — свободно, приватный — по invite)
+    const chJoinMatch = url.pathname.match(/^\/api\/channels\/([^/]+)\/join$/);
+    if (req.method === 'POST' && chJoinMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const id = chJoinMatch[1];
+      const ch = db.channels[id];
+      if (!ch) return send(res, 404, { error: 'Канал не найден' });
+
+      if (ch.type === 'private') {
+        const { invite } = data;
+        if (invite !== ch.invite) return send(res, 403, { error: 'Неверная ссылка-приглашение' });
+      }
+
+      if (!ch.members.includes(me.username)) {
+        ch.members.push(me.username);
+        ch.memberCount = ch.members.length;
+        schedSave();
+      }
+      return send(res, 200, { ok: true, channel: safeChannel(ch, true) });
+    }
+
+    // ── POST /api/channels/:id/leave ─────────────
+    const chLeaveMatch = url.pathname.match(/^\/api\/channels\/([^/]+)\/leave$/);
+    if (req.method === 'POST' && chLeaveMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const id = chLeaveMatch[1];
+      const ch = db.channels[id];
+      if (!ch) return send(res, 404, { error: 'Не найден' });
+      ch.members = ch.members.filter(u => u !== me.username);
+      ch.memberCount = ch.members.length;
+      schedSave();
+      return send(res, 200, { ok: true });
+    }
+
+    // ── POST /api/channels/:id/post ───────────────
+    // Опубликовать пост (только владелец)
+    const chPostMatch = url.pathname.match(/^\/api\/channels\/([^/]+)\/post$/);
+    if (req.method === 'POST' && chPostMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const id = chPostMatch[1];
+      const ch = db.channels[id];
+      if (!ch)                      return send(res, 404, { error: 'Не найден' });
+      if (ch.owner !== me.username) return send(res, 403, { error: 'Только владелец может постить' });
+
+      const { text } = data;
+      if (!text || !text.trim()) return send(res, 400, { error: 'Пустой пост' });
+
+      const post = { id: crypto.randomBytes(8).toString('hex'), text: text.trim(), ts: Date.now() };
+      if (!ch.posts) ch.posts = [];
+      ch.posts.push(post);
+      if (ch.posts.length > 500) ch.posts.splice(0, ch.posts.length - 500);
+      schedSave();
+
+      // Уведомить всех онлайн-подписчиков через WS
+      ch.members.forEach(uname => {
+        if (uname === me.username) return;
+        const sock = clients.get(uname);
+        if (sock && sock.readyState === WebSocket.OPEN) {
+          sock.send(J({ type: 'channel_post', channelId: id, post }));
+        }
+      });
+
+      return send(res, 200, { ok: true, post });
+    }
+
+    // ── GET /api/invite/:code ─────────────────────
+    // Резолв инвайт-кода — возвращает мета канала БЕЗ постов
+    const invMatch = url.pathname.match(/^\/api\/invite\/([A-Za-z0-9]{10})$/);
+    if (req.method === 'GET' && invMatch) {
+      const code = invMatch[1];
+      const ch = Object.values(db.channels).find(c => c.invite === code);
+      if (!ch) return send(res, 404, { error: 'Ссылка недействительна' });
+      return send(res, 200, { ok: true, channel: safeChannel(ch) });
     }
 
     send(res, 404, { error: 'Not found' });
@@ -321,48 +585,42 @@ function send(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
 }
+
 function serve(res, filePath) {
-  // Serve index.html (from cache or disk)
   if (!filePath || filePath === 'index.html') {
-    const html = cachedHTML || fs.existsSync(path.join(__dirname,'index.html')) && fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+    const html = cachedHTML || (fs.existsSync(path.join(__dirname,'index.html')) && fs.readFileSync(path.join(__dirname,'index.html'),'utf8'));
     if (html) {
-      res.writeHead(200, {'Content-Type':'text/html;charset=utf-8'});
+      res.writeHead(200, { 'Content-Type': 'text/html;charset=utf-8' });
       res.end(html);
     } else {
-      res.writeHead(200, {'Content-Type':'text/html;charset=utf-8'});
+      res.writeHead(200, { 'Content-Type': 'text/html;charset=utf-8' });
       res.end(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nexus</title>
 <style>body{background:#07090f;color:#dde6f8;font-family:Arial;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;gap:12px;text-align:center}
 h1{font-size:48px;margin:0;background:linear-gradient(135deg,#4f8aff,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 p{color:#6b7fa3;font-size:13px;max-width:340px;line-height:1.7}code{background:#111520;padding:2px 7px;border-radius:5px;color:#4f8aff}</style></head>
-<body><h1>NEXUS</h1><p>Сервер работает ✅<br><br>
-Загрузи <code>index.html</code> в GitHub репозиторий рядом с <code>server.js</code></p>
-<p style="font-size:11px;color:#3a4560">github.com/bananobamovic-glitch/Nexus → Add file → Upload files</p>
-<button onclick="location.reload()" style="margin-top:8px;padding:10px 20px;background:linear-gradient(135deg,#4f8aff,#8b5cf6);color:#fff;border:none;border-radius:9px;cursor:pointer;font-size:13px">🔄 Обновить</button>
-</body></html>`);
+<body><h1>NEXUS</h1><p>Сервер работает ✅<br><br>Загрузи <code>index.html</code> в репо рядом с <code>server.js</code></p></body></html>`);
     }
     return;
   }
-  // Other static files
   const f = path.join(__dirname, filePath);
   if (fs.existsSync(f)) {
-    const ext = path.extname(f);
-    const types = {'.json':'application/json','.js':'application/javascript','.png':'image/png','.ico':'image/x-icon'};
-    res.writeHead(200, {'Content-Type': types[ext]||'text/plain'});
+    const ext   = path.extname(f);
+    const types = { '.json':'application/json', '.js':'application/javascript', '.png':'image/png', '.ico':'image/x-icon' };
+    res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
     res.end(fs.readFileSync(f));
   } else {
-    res.writeHead(200, {'Content-Type':'text/plain'});
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('');
   }
 }
 
 // ─── WebSocket ─────────────────────────────────────
-const wss = new WebSocketServer({ server });
+const wss     = new WebSocketServer({ server });
 const clients = new Map(); // username → ws
 
 wss.on('connection', ws => {
   let me = null;
 
-  // Ping/pong — держим соединение живым через Render proxy
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 
@@ -371,11 +629,14 @@ wss.on('connection', ws => {
 
     switch (msg.type) {
 
+      case 'ping':
+        ws.send(J({ type: 'pong' }));
+        break;
+
       case 'auth': {
         const user = validateSession(msg.token);
         if (!user) { ws.send(J({ type: 'auth_fail' })); return; }
         me = user.username;
-        // Kick old connection if exists
         const old = clients.get(me);
         if (old && old !== ws && old.readyState === WebSocket.OPEN) {
           old.send(J({ type: 'kicked' }));
@@ -485,7 +746,7 @@ wss.on('connection', ws => {
   ws.on('error', () => {});
 });
 
-// Ping every 25s to keep WS alive through Render's proxy (60s timeout)
+// Ping every 25s
 const pingInterval = setInterval(() => {
   wss.clients.forEach(ws => {
     if (!ws.isAlive) { ws.terminate(); return; }
@@ -510,7 +771,6 @@ function J(o) { return JSON.stringify(o); }
 const REPO_RAW = 'https://raw.githubusercontent.com/bananobamovic-glitch/Nexus/main/index.html';
 let cachedHTML = null;
 
-// Download index.html from GitHub if not found locally
 async function fetchHTML() {
   const local = path.join(__dirname, 'index.html');
   if (fs.existsSync(local)) {
@@ -518,7 +778,7 @@ async function fetchHTML() {
     console.log('✅ index.html загружен локально');
     return;
   }
-  console.log('📥 index.html не найден, скачиваю с GitHub...');
+  console.log('📥 index.html не найден локально, скачиваю с GitHub...');
   return new Promise(resolve => {
     https.get(REPO_RAW, res => {
       let data = '';
@@ -526,31 +786,30 @@ async function fetchHTML() {
       res.on('end', () => {
         if (res.statusCode === 200 && data.includes('<!DOCTYPE')) {
           cachedHTML = data;
-          console.log('✅ index.html скачан с GitHub (' + data.length + ' bytes)');
+          console.log('✅ index.html скачан (' + data.length + ' bytes)');
         } else {
           console.warn('⚠️ Не удалось скачать index.html, статус: ' + res.statusCode);
         }
         resolve();
       });
-    }).on('error', e => { console.warn('⚠️ Ошибка загрузки index.html:', e.message); resolve(); });
+    }).on('error', e => { console.warn('⚠️ Ошибка:', e.message); resolve(); });
   });
 }
 
 async function start() {
   if (!GITHUB_TOKEN) {
-    console.warn('⚠️  GITHUB_TOKEN не задан — данные не сохранятся');
+    console.warn('⚠️  GITHUB_TOKEN не задан — данные не сохранятся между перезапусками');
   } else {
     console.log('📦 Загружаю из GitHub Gist...');
     await loadGist();
   }
-
   await fetchHTML();
-
   server.listen(PORT, () => {
-    console.log(`\n🚀 Nexus v6 → http://localhost:${PORT}`);
-    console.log(`   Users: ${Object.keys(db.users).length}`);
-    console.log(`   HTML: ${cachedHTML ? 'OK' : '❌ НЕ ЗАГРУЖЕН'}`);
-    console.log(`   Gist: ${db.gistId || 'создастся при первом сохранении'}\n`);
+    console.log(`\n🚀 Nexus v7 → http://localhost:${PORT}`);
+    console.log(`   Users:    ${Object.keys(db.users).length}`);
+    console.log(`   Channels: ${Object.keys(db.channels).length}`);
+    console.log(`   HTML:     ${cachedHTML ? 'OK' : '❌ НЕ ЗАГРУЖЕН'}`);
+    console.log(`   Gist:     ${db.gistId || 'создастся при первом сохранении'}\n`);
   });
 }
 
