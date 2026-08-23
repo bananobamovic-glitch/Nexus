@@ -1233,23 +1233,42 @@ function recvMsg(d){
     });
   }
   if(curChat===d.from){
-    const mw = g('mw'); renderMsg(d,mw,true); mw.scrollTop=mw.scrollHeight;
+    const mw=g('mw');
+    // Если в mw уже есть placeholder с этим id (наш upload) — обновляем src
+    const existing=mw.querySelector(`[data-id="${d.id}"]`);
+    if(existing && d.src){
+      if(d.type==='voice'){
+        existing.dataset.src=d.src;
+        const btn=existing.querySelector('.vplay');
+        if(btn){ btn.disabled=false; btn.innerHTML='<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>'; }
+        const durEl=existing.querySelector('.vdur');
+        if(durEl) durEl.textContent=fmtD(d.duration||0);
+      }
+      if(d.type==='video_circle'){
+        const vc=existing.querySelector('.vc');
+        if(vc){ vc.innerHTML=`<video src="${d.src}" loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block"></video><div class="vc-ov" onclick="playVC(this)"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`; }
+      }
+    } else if(!existing){
+      renderMsg(d,mw,true); mw.scrollTop=mw.scrollHeight;
+    }
     wsSend({type:'read', from:d.from});
   } else {
     if(!contacts[d.from]){
-      const u = getUser(d.from)||{nickname:d.from, color:'#4f8aff', uuid:''};
+      const u=getUser(d.from)||{nickname:d.from, color:'#4f8aff', uuid:''};
       contacts[d.from]={...u, online:true, unread:0, lastMsg:'', lastTime:0};
     }
     contacts[d.from].unread=(contacts[d.from].unread||0)+1;
     renderCL();
-    toast(`<strong>${contacts[d.from]?.nickname||d.from}</strong>: ${(d.text||'📎 Медиа').slice(0,55)}`);
+    const preview=d.type==='voice'?'🎤 Голосовое':d.type==='video_circle'?'📹 Видео-кружок':(d.text||'📎 Медиа');
+    toast(`<strong>${contacts[d.from]?.nickname||d.from}</strong>: ${preview.slice(0,55)}`);
   }
 }
 
 function updateCPreview(msg){
   const key = msg.from===ME.username ? msg.to : msg.from;
   if(!contacts[key]){ const u=getUser(key); if(u) contacts[key]={...u, online:!!onlineMap[key], unread:0, lastMsg:'', lastTime:0}; }
-  if(contacts[key]){ contacts[key].lastMsg=msg.text?.slice(0,40)||'📎 Медиа'; contacts[key].lastTime=msg.ts; }
+  const previewText = msg.type==='voice' ? '🎤 Голосовое' : msg.type==='video_circle' ? '📹 Видео-кружок' : (msg.text?.slice(0,40)||'📎 Медиа');
+  if(contacts[key]){ contacts[key].lastMsg=previewText; contacts[key].lastTime=msg.ts; }
   saveRoom(key, contacts[key]?.lastMsg||'', msg.ts);
   renderCL();
 }
@@ -1313,15 +1332,18 @@ function renderMsg(m, wrap, animate){
 function renderVoiceBub(m,grp,isMe,animate){
   const dur=m.duration||0;
   const bars=waveform(m.id);
+  const uploading=!m.src;
   const el=document.createElement('div'); el.className='vbub'; if(!animate) el.style.animation='none';
   el.dataset.id=m.id; el.dataset.src=m.src||''; el.dataset.dur=dur;
   el.addEventListener('contextmenu',e=>{ e.preventDefault(); showCtx(e,m,isMe); });
   el.addEventListener('touchstart',makeLongPress(e=>showCtx(e,m,isMe)),{passive:true});
-  el.innerHTML=`<button class="vplay" onclick="playVoice(this)">
-    <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+  el.innerHTML=`<button class="vplay" onclick="playVoice(this)" ${uploading?'disabled':''}>
+    ${uploading
+      ? '<span class="spin" style="border-top-color:#fff;border-color:rgba(255,255,255,.25)"></span>'
+      : '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>'}
   </button>
   <div class="vwf" id="wf-${m.id}">${bars.map((h,i)=>`<div class="vbar" data-i="${i}" style="height:${h}px"></div>`).join('')}</div>
-  <span class="vdur">${fmtD(dur)}</span>`;
+  <span class="vdur">${uploading?'загрузка...':fmtD(dur)}</span>`;
   grp.appendChild(el);
   if(isMe){ const rr=document.createElement('div'); rr.className='rr'+(m.read?' read':''); rr.dataset.mid=m.id; rr.textContent=m.read?'✓✓ прочитано':'✓ доставлено'; grp.appendChild(rr); }
 }
@@ -1335,7 +1357,7 @@ function waveform(seed){
 
 let curAudio=null;
 function playVoice(btn){
-  const bub=btn.closest('.vbub'); if(!bub||!bub.dataset.src) return;
+  const bub=btn.closest('.vbub'); if(!bub||!bub.dataset.src){ toast('⏳ Файл ещё загружается...'); return; }
   if(curAudio){ curAudio.pause(); curAudio=null; }
   const audio=new Audio(bub.dataset.src); curAudio=audio;
   const dur=parseInt(bub.dataset.dur)||1;
@@ -1348,12 +1370,17 @@ function playVoice(btn){
 
 // ── Video circle bubble ───────────────────────────
 function renderVideoBub(m,grp,isMe,animate){
+  const uploading=!m.src;
   const wrap=document.createElement('div'); wrap.className='vcw'; if(!animate) wrap.style.animation='none'; wrap.dataset.id=m.id;
   wrap.addEventListener('contextmenu',e=>{ e.preventDefault(); showCtx(e,m,isMe); });
   wrap.addEventListener('touchstart',makeLongPress(e=>showCtx(e,m,isMe)),{passive:true});
   const circ=document.createElement('div'); circ.className='vc';
-  circ.innerHTML=`<video src="${m.src||''}" loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block"></video>
-    <div class="vc-ov" onclick="playVC(this)"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`;
+  if(uploading){
+    circ.innerHTML=`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-size:12px;flex-direction:column;gap:8px"><span class="spin" style="width:24px;height:24px;border-width:3px"></span>загрузка...</div>`;
+  } else {
+    circ.innerHTML=`<video src="${m.src}" loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block"></video>
+      <div class="vc-ov" onclick="playVC(this)"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`;
+  }
   wrap.appendChild(circ);
   const tEl=document.createElement('div'); tEl.className='vc-time'; tEl.textContent=tsStr(m.ts); wrap.appendChild(tEl);
   grp.appendChild(wrap);
@@ -1583,11 +1610,42 @@ async function toggleVoice(){
 function stopVoice(){ clearInterval(voiceTmr); if(mediaRec){ mediaRec.stop(); mediaRec=null; } g('rec-bar').classList.remove('on'); g('voice-btn').style.color=''; }
 function cancelRec(){ voiceChunks=[]; stopVoice(); }
 async function sendVoice(blob,dur){
-  const src=await toDataURL(blob);
-  const msg={id:uid(), from:ME.username, to:curChat, type:'voice', src, duration:dur, ts:Date.now(), read:false};
-  const mw=g('mw'); sentIds.add(msg.id); renderMsg(msg,mw,true); mw.scrollTop=mw.scrollHeight;
-  updateCPreview({...msg, text:'🎤 Голосовое'});
-  wsSend({type:'message', ...msg});
+  // Показываем заглушку сразу
+  const id=uid();
+  const mw=g('mw');
+  const placeholderMsg={id, from:ME.username, to:curChat, type:'voice', src:'', duration:dur, ts:Date.now(), read:false};
+  sentIds.add(id);
+  renderMsg(placeholderMsg,mw,true); mw.scrollTop=mw.scrollHeight;
+  updateCPreview({...placeholderMsg, text:'🎤 Голосовое'});
+
+  // Загружаем файл на сервер
+  try {
+    const res = await fetch(SERVER_HTTP+'/api/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer '+TOKEN,
+        'X-Media-Type': 'voice',
+        'X-Media-Mime': blob.type||'audio/webm',
+        'X-Media-Duration': String(dur),
+        'Content-Type': blob.type||'audio/webm',
+      },
+      body: blob,
+    });
+    const d = await res.json();
+    if(!d.ok) throw new Error(d.error||'upload failed');
+    const src = SERVER_HTTP + d.url;
+    // Обновляем src в уже отрисованном элементе
+    const el=mw.querySelector(`[data-id="${id}"]`);
+    if(el){ el.dataset.src=src; }
+    // Отправляем сообщение с реальным src
+    const msg={id, from:ME.username, to:curChat, type:'voice', src, duration:dur, ts:Date.now(), read:false};
+    wsSend({type:'message', ...msg});
+  } catch(e) {
+    console.error('Voice upload error:', e);
+    toast('❌ Не удалось отправить голосовое: '+e.message);
+    // Удаляем заглушку
+    mw.querySelector(`[data-id="${id}"]`)?.closest('.mg')?.remove();
+  }
 }
 
 // ════════════════════════════════════════════════════
@@ -1621,11 +1679,41 @@ async function toggleVideoCircle(){
 }
 function stopVC(){ if(!vcRec) return; clearInterval(vcRec._tmr); vcRec.stop(); vcRec=null; g('vc-btn').style.color=''; }
 async function sendVC(blob,dur){
-  const src=await toDataURL(blob);
-  const msg={id:uid(), from:ME.username, to:curChat, type:'video_circle', src, duration:dur, ts:Date.now(), read:false};
-  const mw=g('mw'); sentIds.add(msg.id); renderMsg(msg,mw,true); mw.scrollTop=mw.scrollHeight;
-  updateCPreview({...msg, text:'📹 Видео-кружок'});
-  wsSend({type:'message', ...msg});
+  const id=uid();
+  const mw=g('mw');
+  // Показываем заглушку
+  const placeholderMsg={id, from:ME.username, to:curChat, type:'video_circle', src:'', duration:dur, ts:Date.now(), read:false};
+  sentIds.add(id);
+  renderMsg(placeholderMsg,mw,true); mw.scrollTop=mw.scrollHeight;
+  updateCPreview({...placeholderMsg, text:'📹 Видео-кружок'});
+
+  try {
+    const res = await fetch(SERVER_HTTP+'/api/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer '+TOKEN,
+        'X-Media-Type': 'video_circle',
+        'X-Media-Mime': blob.type||'video/webm',
+        'X-Media-Duration': String(dur),
+        'Content-Type': blob.type||'video/webm',
+      },
+      body: blob,
+    });
+    const d = await res.json();
+    if(!d.ok) throw new Error(d.error||'upload failed');
+    const src = SERVER_HTTP + d.url;
+    // Обновляем src в уже отрисованном элементе
+    const el=mw.querySelector(`[data-id="${id}"]`);
+    if(el){
+      const vid=el.querySelector('video'); if(vid) vid.src=src;
+    }
+    const msg={id, from:ME.username, to:curChat, type:'video_circle', src, duration:dur, ts:Date.now(), read:false};
+    wsSend({type:'message', ...msg});
+  } catch(e) {
+    console.error('VC upload error:', e);
+    toast('❌ Не удалось отправить кружок: '+e.message);
+    mw.querySelector(`[data-id="${id}"]`)?.closest('.mg')?.remove();
+  }
 }
 
 // ════════════════════════════════════════════════════
