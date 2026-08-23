@@ -23,10 +23,15 @@ let db = {
   users:    {},
   sessions: {},
   messages: {},
-  channels: {},   // id → channel object
+  channels: {},
+  media:    {},   // id → {id, owner, mime, data(base64), size, ts}
   counter:  0,
   gistId:   process.env.GIST_ID || '',
 };
+
+// Лимит хранилища медиа: 200 файлов, старые удаляются
+const MEDIA_LIMIT = 200;
+const MEDIA_MAX_MB = 15; // максимальный размер одного файла в МБ
 
 // ─── GitHub Gist ───────────────────────────────────
 function gistReq(method, p, body) {
@@ -67,9 +72,17 @@ async function saveGist() {
     counter:  db.counter,
     channels: db.channels,
     messages: {},
+    // Медиа НЕ сохраняем в Gist — слишком большие, хранятся только в памяти
   };
   Object.keys(db.messages).forEach(r => {
-    slim.messages[r] = db.messages[r].slice(-100);
+    // Убираем src из медиа-сообщений перед сохранением (храним только мета)
+    slim.messages[r] = db.messages[r].slice(-100).map(m => {
+      if (m.type === 'voice' || m.type === 'video_circle') {
+        const { src, ...rest } = m;
+        return rest; // src — это ссылка /api/media/:id, она восстановится
+      }
+      return m;
+    });
   });
   const payload = {
     description: 'Nexus DB',
@@ -575,6 +588,73 @@ const server = http.createServer((req, res) => {
       const ch = Object.values(db.channels).find(c => c.invite === code);
       if (!ch) return send(res, 404, { error: 'Ссылка недействительна' });
       return send(res, 200, { ok: true, channel: safeChannel(ch) });
+    }
+
+    // ── POST /api/upload ─────────────────────────────────────
+    // Загрузка медиафайла (голосовое / видео-кружок)
+    // Content-Type: application/octet-stream или multipart
+    // Клиент шлёт: Authorization: Bearer <token>, X-Media-Type: voice|video_circle, X-Media-Mime: audio/webm
+    if (req.method === 'POST' && url.pathname === '/api/upload') {
+      const user = validateSession(token);
+      if (!user) return send(res, 401, { error: 'Unauthorized' });
+
+      const mime     = req.headers['x-media-mime'] || 'application/octet-stream';
+      const mtype    = req.headers['x-media-type'] || 'voice'; // voice | video_circle
+      const duration = parseInt(req.headers['x-media-duration'] || '0');
+
+      // Читаем тело как бинарные данные
+      const chunks = [];
+      req.on('data', d => chunks.push(d));
+      req.on('end', () => {
+        const buf  = Buffer.concat(chunks);
+        const sizeMB = buf.length / 1024 / 1024;
+
+        if (sizeMB > MEDIA_MAX_MB) {
+          return send(res, 413, { error: `Файл слишком большой (макс ${MEDIA_MAX_MB} МБ)` });
+        }
+
+        const id = 'med_' + crypto.randomBytes(10).toString('hex');
+        db.media[id] = {
+          id,
+          owner:    user.username,
+          mime,
+          mtype,
+          duration,
+          data:     buf.toString('base64'),
+          size:     buf.length,
+          ts:       Date.now(),
+        };
+
+        // Чистим старые файлы
+        const keys = Object.keys(db.media).sort((a,b) => db.media[a].ts - db.media[b].ts);
+        if (keys.length > MEDIA_LIMIT) {
+          keys.slice(0, keys.length - MEDIA_LIMIT).forEach(k => delete db.media[k]);
+        }
+
+        return send(res, 200, {
+          ok:  true,
+          id,
+          url: `/api/media/${id}`,
+        });
+      });
+      return; // тело читается асинхронно
+    }
+
+    // ── GET /api/media/:id ────────────────────────────────────
+    const mediaMatch = url.pathname.match(/^\/api\/media\/([a-z0-9_]+)$/);
+    if (req.method === 'GET' && mediaMatch) {
+      const id  = mediaMatch[1];
+      const med = db.media[id];
+      if (!med) { res.writeHead(404); res.end('Not found'); return; }
+      const buf = Buffer.from(med.data, 'base64');
+      res.writeHead(200, {
+        'Content-Type':   med.mime || 'application/octet-stream',
+        'Content-Length': buf.length,
+        'Cache-Control':  'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(buf);
+      return;
     }
 
     // ── GET /api/bot/updates ─── для Python-ботов (polling) ──
