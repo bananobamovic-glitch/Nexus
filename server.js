@@ -577,6 +577,43 @@ const server = http.createServer((req, res) => {
       return send(res, 200, { ok: true, channel: safeChannel(ch) });
     }
 
+    // ── GET /api/bot/updates ─── для Python-ботов (polling) ──
+    if (req.method === 'GET' && url.pathname === '/api/bot/updates') {
+      const botToken = url.searchParams.get('token') || token;
+      const user = validateSession(botToken);
+      if (!user) return send(res, 401, { error: 'Unauthorized' });
+      const offset = parseInt(url.searchParams.get('offset') || '0');
+      // Возвращаем все входящие сообщения для этого пользователя начиная с offset
+      const msgs = [];
+      Object.values(db.messages).forEach(room => {
+        room.forEach(m => {
+          if (m.to === user.username && !m.deleted) {
+            const numId = typeof m.id === 'string' ? parseInt(m.id.split('_')[0]||'0') : (m.id||0);
+            if (numId > offset) msgs.push(m);
+          }
+        });
+      });
+      msgs.sort((a,b) => (a.ts||0)-(b.ts||0));
+      return send(res, 200, { ok: true, messages: msgs.slice(0, 100) });
+    }
+
+    // ── POST /api/bot/send ─── для Python-ботов ──
+    if (req.method === 'POST' && url.pathname === '/api/bot/send') {
+      const botToken = data.token || token;
+      const user = validateSession(botToken);
+      if (!user) return send(res, 401, { error: 'Unauthorized' });
+      const { to, text, id: msgId } = data;
+      if (!to || !text) return send(res, 400, { error: 'Missing to/text' });
+      const m = {
+        id: msgId || newToken().slice(0,16),
+        from: user.username, to,
+        text: String(text), ts: Date.now(), read: false,
+      };
+      saveMsg(m);
+      relay(to, { type: 'message', ...m });
+      return send(res, 200, { ok: true, message: m });
+    }
+
     send(res, 404, { error: 'Not found' });
   });
 });
