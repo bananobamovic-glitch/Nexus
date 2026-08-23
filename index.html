@@ -511,6 +511,11 @@ body.night{--bg:#000;--s1:#0a0a0a;--s2:#0f0f0f;--s3:#141414;--b1:#1a1a1a;--b2:#2
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M12 2a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M12 8v4M8 10H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2v-6a2 2 0 00-2-2h-4" stroke-linecap="round"/><circle cx="9" cy="15" r="1" fill="currentColor"/><circle cx="15" cy="15" r="1" fill="currentColor"/></svg>
       Мои боты
     </div>
+    <div class="dr-item" onclick="openPythonBotDocs()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Python Bot API
+      <span style="margin-left:auto;font-family:var(--fu);font-size:8px;color:var(--a2);font-weight:700;letter-spacing:.04em">DOCS</span>
+    </div>
     <div class="dr-item" onclick="openChannels()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Каналы
@@ -684,6 +689,20 @@ body.night{--bg:#000;--s1:#0a0a0a;--s2:#0f0f0f;--s3:#141414;--b1:#1a1a1a;--b2:#2
       <div class="call-tmr" id="call-tmr">00:00</div>
       <div class="call-stx" id="call-stx">Вызов...</div>
     </div>
+
+    <!-- МИНИ-ЧАТ во время звонка -->
+    <div id="call-chat" style="display:none;position:absolute;bottom:130px;left:0;right:0;z-index:10;padding:0 10px;">
+      <div id="call-chat-msgs" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:6px;padding:0 2px;"></div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="call-chat-inp" placeholder="Написать во время звонка..." maxlength="500"
+          style="flex:1;padding:9px 13px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:20px;color:#fff;font-size:13px;outline:none;font-family:var(--fb);"
+          onkeydown="if(event.key==='Enter')sendCallMsg()"/>
+        <button onclick="sendCallMsg()" style="width:36px;height:36px;border-radius:50%;background:var(--ag);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:none;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="white" width="16" height="16"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        </button>
+      </div>
+    </div>
+
     <div class="call-ctrls">
       <div class="ctrl" onclick="toggleMute()">
         <div class="ctrl-c norm" id="cc-mute">
@@ -698,6 +717,12 @@ body.night{--bg:#000;--s1:#0a0a0a;--s2:#0f0f0f;--s3:#141414;--b1:#1a1a1a;--b2:#2
           <svg id="ico-cam-off" style="display:none" viewBox="0 0 24 24"><path d="M21 6.5l-4 4V7a1 1 0 00-1-1H9.82L21 17.18V6.5zM3.27 2L2 3.27 4.73 6H4a1 1 0 00-1 1v10a1 1 0 001 1h12c.21 0 .39-.08.54-.18L19.73 21 21 19.73 3.27 2z"/></svg>
         </div>
         <span class="ctrl-lbl" id="lbl-cam">Камера</span>
+      </div>
+      <div class="ctrl" onclick="toggleCallChat()">
+        <div class="ctrl-c norm" id="cc-chat">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
+        </div>
+        <span class="ctrl-lbl">Чат</span>
       </div>
       <div class="ctrl end" onclick="endCall(true)">
         <div class="ctrl-c"><svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" fill="white"/></svg></div>
@@ -992,6 +1017,11 @@ function handleWS(msg){
       renderCL(); updateHSt(); break;
     case 'message':
       if(sentIds.has(msg.id)) break;
+      // Сообщение во время звонка — показываем в мини-чате
+      if(msg.callMsg && callState && msg.from===callPartner){
+        appendCallChatMsg(msg.from, msg.text);
+        break;
+      }
       recvMsg(msg);
       if(document.hidden||!document.hasFocus()){
         const sender = getUser(msg.from);
@@ -1529,21 +1559,26 @@ function insertEmoji(em){
 }
 
 // ════════════════════════════════════════════════════
-//  VOICE RECORDING
+//  VOICE RECORDING — с fallback без микрофона
 // ════════════════════════════════════════════════════
 async function toggleVoice(){
   if(mediaRec){ stopVoice(); return; }
   if(!curChat) return;
+  let stream;
   try {
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    mediaRec=new MediaRecorder(stream,{mimeType:bestMime(['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'])});
-    voiceChunks=[]; voiceSecs=0;
-    mediaRec.ondataavailable=e=>{ if(e.data.size) voiceChunks.push(e.data); };
-    mediaRec.onstop=()=>{ stream.getTracks().forEach(t=>t.stop()); if(voiceChunks.length) sendVoice(new Blob(voiceChunks,{type:mediaRec.mimeType}),voiceSecs); voiceChunks=[]; };
-    mediaRec.start(100);
-    g('rec-bar').classList.add('on'); g('voice-btn').style.color='var(--rd)';
-    voiceTmr=setInterval(()=>{ voiceSecs++; g('rec-t').textContent=fmtD(voiceSecs); if(voiceSecs>=120) stopVoice(); },1000);
-  } catch { toast('Нет доступа к микрофону'); }
+    stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch(e) {
+    // Нет микрофона — предлагаем текстовое сообщение
+    toast('🎤 Нет микрофона — используй текстовый чат');
+    return;
+  }
+  mediaRec=new MediaRecorder(stream,{mimeType:bestMime(['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'])});
+  voiceChunks=[]; voiceSecs=0;
+  mediaRec.ondataavailable=e=>{ if(e.data.size) voiceChunks.push(e.data); };
+  mediaRec.onstop=()=>{ stream.getTracks().forEach(t=>t.stop()); if(voiceChunks.length) sendVoice(new Blob(voiceChunks,{type:mediaRec.mimeType}),voiceSecs); voiceChunks=[]; };
+  mediaRec.start(100);
+  g('rec-bar').classList.add('on'); g('voice-btn').style.color='var(--rd)';
+  voiceTmr=setInterval(()=>{ voiceSecs++; g('rec-t').textContent=fmtD(voiceSecs); if(voiceSecs>=120) stopVoice(); },1000);
 }
 function stopVoice(){ clearInterval(voiceTmr); if(mediaRec){ mediaRec.stop(); mediaRec=null; } g('rec-bar').classList.remove('on'); g('voice-btn').style.color=''; }
 function cancelRec(){ voiceChunks=[]; stopVoice(); }
@@ -1556,28 +1591,33 @@ async function sendVoice(blob,dur){
 }
 
 // ════════════════════════════════════════════════════
-//  VIDEO CIRCLE
+//  VIDEO CIRCLE — с fallback без камеры
 // ════════════════════════════════════════════════════
 async function toggleVideoCircle(){
   if(vcRec){ stopVC(); return; }
   if(!curChat) return;
+  let stream;
   try {
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:400,height:400},audio:true});
-    g('lv').srcObject=stream; g('call-pip').style.display='block';
-    vcRec=new MediaRecorder(stream,{mimeType:bestMime(['video/webm;codecs=vp9,opus','video/webm','video/mp4'])});
-    vcChunks=[]; let s=0;
-    vcRec.ondataavailable=e=>{ if(e.data.size) vcChunks.push(e.data); };
-    vcRec.onstop=()=>{
-      stream.getTracks().forEach(t=>t.stop());
-      g('call-pip').style.display='none'; g('lv').srcObject=null;
-      if(vcChunks.length) sendVC(new Blob(vcChunks,{type:vcRec.mimeType}),s);
-      vcChunks=[];
-    };
-    vcRec.start(100); g('vc-btn').style.color='var(--rd)';
-    const tmr=setInterval(()=>{ s++; if(s>=60){ clearInterval(tmr); stopVC(); } },1000);
-    vcRec._tmr=tmr;
-    toast('🎥 Запись... нажми снова чтобы отправить');
-  } catch { toast('Нет доступа к камере'); }
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:400,height:400},audio:true});
+  } catch(e) {
+    // Пробуем только видео без аудио
+    try { stream=await navigator.mediaDevices.getUserMedia({video:{width:400,height:400},audio:false}); }
+    catch(e2) { toast('📷 Нет камеры — отправь голосовое или текст'); return; }
+  }
+  g('lv').srcObject=stream; g('call-pip').style.display='block';
+  vcRec=new MediaRecorder(stream,{mimeType:bestMime(['video/webm;codecs=vp9,opus','video/webm','video/mp4'])});
+  vcChunks=[]; let s=0;
+  vcRec.ondataavailable=e=>{ if(e.data.size) vcChunks.push(e.data); };
+  vcRec.onstop=()=>{
+    stream.getTracks().forEach(t=>t.stop());
+    g('call-pip').style.display='none'; g('lv').srcObject=null;
+    if(vcChunks.length) sendVC(new Blob(vcChunks,{type:vcRec.mimeType}),s);
+    vcChunks=[];
+  };
+  vcRec.start(100); g('vc-btn').style.color='var(--rd)';
+  const tmr=setInterval(()=>{ s++; if(s>=60){ clearInterval(tmr); stopVC(); } },1000);
+  vcRec._tmr=tmr;
+  toast('🎥 Запись... нажми снова чтобы отправить');
 }
 function stopVC(){ if(!vcRec) return; clearInterval(vcRec._tmr); vcRec.stop(); vcRec=null; g('vc-btn').style.color=''; }
 async function sendVC(blob,dur){
@@ -1632,24 +1672,40 @@ function makePC(){
 async function startCall(type){
   if(!curChat) return;
   if(callState){ toast('Уже идёт звонок'); return; }
-  // Don't call bots
   if(curChat==='nexus_bot'||curChat.startsWith('bot_')){ toast('Нельзя звонить боту'); return; }
   callType=type; callPartner=curChat; callRole='caller'; callState='ringing';
-  try {
-    const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-    const videoC=isMobile?{facingMode:'user',width:640,height:480}:{width:1280,height:720};
-    localStream=await navigator.mediaDevices.getUserMedia(type==='video'?{audio:true,video:videoC}:{audio:true,video:false});
-  } catch(err) {
-    if(err.name==='NotAllowedError') toast('❌ Нет разрешения на микрофон/камеру');
-    else toast('❌ Ошибка медиа: '+err.message);
-    callState=null; callPartner=null; return;
-  }
+
+  // Пробуем получить медиа, но НЕ прерываем звонок если нет устройств
+  localStream = await tryGetMedia(type);
+  // localStream может быть null — звонок всё равно продолжается (текстовый режим)
+
   pc=makePC();
-  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
-  const offer=await pc.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:type==='video',voiceActivityDetection:false});
+  if(localStream) localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+  const offer=await pc.createOffer({
+    offerToReceiveAudio:true,
+    offerToReceiveVideo:type==='video',
+    voiceActivityDetection:false,
+  });
   await pc.setLocalDescription(offer);
   showCallOv('caller');
   wsSend({type:'offer',to:callPartner,ct:type,sdp:pc.localDescription.sdp});
+}
+
+// Пробуем получить медиа с деградацией: видео+аудио → только аудио → ничего
+async function tryGetMedia(type){
+  const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  const videoC=isMobile?{facingMode:'user',width:640,height:480}:{width:1280,height:720};
+  if(type==='video'){
+    try{ return await navigator.mediaDevices.getUserMedia({audio:true,video:videoC}); }catch{}
+    try{ return await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch{}
+    try{ return await navigator.mediaDevices.getUserMedia({audio:false,video:videoC}); }catch{}
+    toast('📵 Нет камеры/микрофона — звоним в текстовом режиме');
+    return null;
+  } else {
+    try{ return await navigator.mediaDevices.getUserMedia({audio:true,video:false}); }catch{}
+    toast('🔇 Нет микрофона — звоним в текстовом режиме');
+    return null;
+  }
 }
 
 function onOffer(msg){
@@ -1665,16 +1721,11 @@ function onOffer(msg){
 
 async function acceptCall(){
   stopRing(); g('inc-modal').classList.remove('on'); callState='connecting';
-  try {
-    const isMobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
-    const videoC=isMobile?{facingMode:'user',width:640,height:480}:{width:1280,height:720};
-    localStream=await navigator.mediaDevices.getUserMedia(callType==='video'?{audio:true,video:videoC}:{audio:true,video:false});
-  } catch(err) {
-    toast('❌ Нет доступа к медиа: '+err.message);
-    wsSend({type:'call_decline',to:callPartner}); callState=null; callPartner=null; return;
-  }
+  // Медиа опционально — звонок работает без микрофона/камеры
+  localStream = await tryGetMedia(callType);
+
   pc=makePC();
-  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+  if(localStream) localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
   await pc.setRemoteDescription({type:'offer',sdp:offerSdp});
   for(const c of iceBuf) await pc.addIceCandidate(c).catch(()=>{});
   iceBuf=[];
@@ -1734,6 +1785,7 @@ function cleanCall(){
   g('call-stx').style.display='block'; g('call-stx').textContent='Вызов...';
   callPartner=null; callRole=null; callState=null; callType='audio';
   isMuted=false; isCamOff=false; isSpkOff=false; iceBuf=[]; offerSdp=null;
+  clearCallChat();
   syncCallUI();
 }
 
@@ -1752,7 +1804,65 @@ function showCallOv(role){
 function toggleMute(){ isMuted=!isMuted; if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled=!isMuted); g('cc-mute').className='ctrl-c '+(isMuted?'off':'norm'); g('ico-mic-on').style.display=isMuted?'none':'block'; g('ico-mic-off').style.display=isMuted?'block':'none'; g('lbl-mic').textContent=isMuted?'Вкл. звук':'Микрофон'; g('pip-muted').classList.toggle('on',isMuted); }
 function toggleCam(){ if(callType!=='video'){ toast('Видео только в видеозвонке'); return; } isCamOff=!isCamOff; if(localStream) localStream.getVideoTracks().forEach(t=>t.enabled=!isCamOff); g('cc-cam').className='ctrl-c '+(isCamOff?'off':'norm'); g('ico-cam-on').style.display=isCamOff?'none':'block'; g('ico-cam-off').style.display=isCamOff?'block':'none'; g('lbl-cam').textContent=isCamOff?'Вкл. камеру':'Камера'; }
 function toggleSpk(){ isSpkOff=!isSpkOff; g('rv').muted=isSpkOff; g('cc-spk').className='ctrl-c '+(isSpkOff?'off':'norm'); g('ico-spk-on').style.display=isSpkOff?'none':'block'; g('ico-spk-off').style.display=isSpkOff?'block':'none'; g('lbl-spk').textContent=isSpkOff?'Вкл. звук':'Динамик'; }
-function syncCallUI(){ g('cc-mute').className='ctrl-c norm'; g('ico-mic-on').style.display='block'; g('ico-mic-off').style.display='none'; g('lbl-mic').textContent='Микрофон'; g('cc-cam').className='ctrl-c norm'; g('ico-cam-on').style.display='block'; g('ico-cam-off').style.display='none'; g('lbl-cam').textContent='Камера'; g('cc-spk').className='ctrl-c norm'; g('ico-spk-on').style.display='block'; g('ico-spk-off').style.display='none'; g('lbl-spk').textContent='Динамик'; g('pip-muted').classList.remove('on'); }
+function syncCallUI(){
+  g('cc-mute').className='ctrl-c norm'; g('ico-mic-on').style.display='block'; g('ico-mic-off').style.display='none'; g('lbl-mic').textContent='Микрофон';
+  g('cc-cam').className='ctrl-c norm'; g('ico-cam-on').style.display='block'; g('ico-cam-off').style.display='none'; g('lbl-cam').textContent='Камера';
+  g('cc-spk').className='ctrl-c norm'; g('ico-spk-on').style.display='block'; g('ico-spk-off').style.display='none'; g('lbl-spk').textContent='Динамик';
+  g('pip-muted').classList.remove('on');
+  // Серый если нет медиа
+  if(!localStream){
+    g('cc-mute').className='ctrl-c off'; g('ico-mic-on').style.display='none'; g('ico-mic-off').style.display='block'; g('lbl-mic').textContent='Нет микро';
+    if(callType!=='video'){ g('cc-cam').className='ctrl-c off'; }
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  МИНИ-ЧАТ ВО ВРЕМЯ ЗВОНКА
+// ════════════════════════════════════════════════════
+let callChatOpen = false;
+
+function toggleCallChat(){
+  callChatOpen = !callChatOpen;
+  const chat = g('call-chat');
+  if(!chat) return;
+  chat.style.display = callChatOpen ? 'block' : 'none';
+  const btn = g('cc-chat');
+  if(btn) btn.className = 'ctrl-c '+(callChatOpen?'act':'norm');
+  if(callChatOpen) setTimeout(()=>{ const inp=g('call-chat-inp'); if(inp) inp.focus(); },100);
+}
+
+function sendCallMsg(){
+  const inp = g('call-chat-inp'); if(!inp) return;
+  const text = inp.value.trim(); if(!text||!callPartner||!wsReady) return;
+  inp.value='';
+  const id = uid();
+  const msg = {id, from:ME.username, to:callPartner, text, ts:Date.now(), read:false, callMsg:true};
+  sentIds.add(id);
+  appendCallChatMsg(ME.username, text);
+  wsSend({type:'message', ...msg});
+}
+
+function appendCallChatMsg(from, text){
+  const msgs = g('call-chat-msgs'); if(!msgs) return;
+  const isMe = from===ME.username;
+  const u = isMe ? ME : (getUser(from)||{nickname:from,color:'#4f8aff'});
+  const el = document.createElement('div');
+  el.style.cssText=`display:flex;align-items:flex-end;gap:5px;${isMe?'justify-content:flex-end':''}`;
+  el.innerHTML=`${!isMe?`<div style="width:22px;height:22px;border-radius:50%;background:${u.color}33;color:${u.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;flex-shrink:0">${ini(u.nickname)}</div>`:''}
+    <div style="max-width:70%;padding:6px 10px;border-radius:12px;font-size:12px;line-height:1.4;${isMe?'background:rgba(79,138,255,.7);color:#fff;border-bottom-right-radius:3px':'background:rgba(255,255,255,.12);color:#fff;border-bottom-left-radius:3px'}">${esc(text)}</div>`;
+  msgs.appendChild(el);
+  msgs.scrollTop=msgs.scrollHeight;
+  // Открываем чат если пришло чужое сообщение
+  if(!isMe && !callChatOpen){ toggleCallChat(); toast('💬 '+((getUser(from)||{nickname:from}).nickname)+': '+text.slice(0,30)); }
+}
+
+// Чат в звонке очищается при завершении
+function clearCallChat(){
+  const msgs=g('call-chat-msgs'); if(msgs) msgs.innerHTML='';
+  callChatOpen=false;
+  const chat=g('call-chat'); if(chat) chat.style.display='none';
+  const btn=g('cc-chat'); if(btn) btn.className='ctrl-c norm';
+}
 
 let ringCtx=null, ringIv=null;
 function startRing(){
@@ -2766,6 +2876,223 @@ enterApp = function(){
     handleDeepLinks();
   },600);
 };
+
+
+// ════════════════════════════════════════════════════
+//  PYTHON BOT API DOCS
+// ════════════════════════════════════════════════════
+function openPythonBotDocs(){
+  closeDrawer();
+  const modal = document.createElement('div');
+  modal.className='modal on'; modal.id='pybot-modal';
+  const base = location.origin;
+  const wsBase = base.replace('https://','wss://').replace('http://','ws://');
+
+  const code_simple = `import requests
+import json
+import time
+
+TOKEN = "твой_токен"          # из /api/login
+BASE  = "${base}"
+
+def send(to, text):
+    requests.post(f"{BASE}/api/bot/send", json={
+        "token": TOKEN, "to": to, "text": text
+    })
+
+# Получить сообщения
+def poll():
+    r = requests.get(f"{BASE}/api/bot/updates", 
+                     params={"token": TOKEN, "offset": 0})
+    return r.json().get("messages", [])
+
+offset = 0
+while True:
+    r = requests.get(f"{BASE}/api/bot/updates",
+                     params={"token": TOKEN, "offset": offset})
+    msgs = r.json().get("messages", [])
+    for m in msgs:
+        offset = max(offset, m["id"])
+        if m.get("text","").lower() == "привет":
+            send(m["from"], "Привет! 👋")
+    time.sleep(1)
+`;
+
+  const code_ws = `import websocket
+import json, threading, time
+
+TOKEN = "твой_токен"
+WS    = "${wsBase}"
+
+def on_msg(ws, raw):
+    msg = json.loads(raw)
+    if msg.get("type") == "message":
+        text = msg.get("text","")
+        fr   = msg.get("from","")
+        if text == "/start":
+            ws.send(json.dumps({
+                "type":"message","to":fr,
+                "text":"Привет! Я бот на Python 🐍",
+                "id": str(time.time())
+            }))
+
+def on_open(ws):
+    ws.send(json.dumps({"type":"auth","token":TOKEN}))
+
+ws = websocket.WebSocketApp(WS,
+    on_open=on_open, on_message=on_msg)
+ws.run_forever()
+`;
+
+  const code_full = `# pip install websocket-client requests
+import websocket, json, time, threading
+
+TOKEN = "твой_токен"          # получи через /api/login
+BASE_WS = "${wsBase}"
+
+class NexusBot:
+    def __init__(self, token):
+        self.token = token
+        self.handlers = {}
+        self.ws = None
+    
+    def on_text(self, pattern=None):
+        """Декоратор для обработки текстовых команд"""
+        def decorator(fn):
+            key = pattern or "*"
+            self.handlers[key] = fn
+            return fn
+        return decorator
+    
+    def send(self, to, text):
+        if self.ws:
+            self.ws.send(json.dumps({
+                "type": "message", "to": to,
+                "text": text, "id": str(time.time())
+            }))
+    
+    def _on_message(self, ws, raw):
+        msg = json.loads(raw)
+        if msg.get("type") != "message": return
+        text = msg.get("text","").strip()
+        fr   = msg.get("from","")
+        # Ищем обработчик
+        fn = self.handlers.get(text) or self.handlers.get("*")
+        if fn: fn(fr, text)
+    
+    def _on_open(self, ws):
+        self.ws = ws
+        ws.send(json.dumps({"type":"auth","token":self.token}))
+        print("✅ Бот подключён")
+    
+    def run(self):
+        app = websocket.WebSocketApp(
+            BASE_WS,
+            on_open=self._on_open,
+            on_message=self._on_message,
+        )
+        app.run_forever(ping_interval=20)
+
+# ── Использование ──────────────────────
+bot = NexusBot(TOKEN)
+
+@bot.on_text("/start")
+def start(user, text):
+    bot.send(user, "Привет! Я Python-бот в Nexus 🐍")
+
+@bot.on_text("/help")
+def help_(user, text):
+    bot.send(user, "Команды:\n/start — приветствие\n/time — время\n/help — помощь")
+
+@bot.on_text("/time")
+def time_(user, text):
+    bot.send(user, f"🕐 {time.strftime('%H:%M:%S')}")
+
+@bot.on_text("*")   # все остальные сообщения
+def echo(user, text):
+    bot.send(user, f"Ты написал: {text}")
+
+bot.run()
+`;
+
+  modal.innerHTML=`<div class="mbox" style="max-height:90vh;overflow-y:auto">
+    <div class="m-title">🐍 Python Bot API</div>
+    <div class="m-sub">Пиши ботов на Python — они подключаются через WebSocket как обычный клиент</div>
+
+    <!-- Tabs -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px">
+      <button id="pbd-t1" onclick="pybotTab(1)" style="padding:7px 4px;border-radius:8px;border:1.5px solid var(--a2);background:rgba(139,92,246,.1);font-family:var(--fu);font-size:8px;font-weight:700;color:var(--a2);cursor:pointer">БЫСТРЫЙ СТАРТ</button>
+      <button id="pbd-t2" onclick="pybotTab(2)" style="padding:7px 4px;border-radius:8px;border:1.5px solid var(--b1);background:transparent;font-family:var(--fu);font-size:8px;font-weight:700;color:var(--mu);cursor:pointer">WS ПРИМЕР</button>
+      <button id="pbd-t3" onclick="pybotTab(3)" style="padding:7px 4px;border-radius:8px;border:1.5px solid var(--b1);background:transparent;font-family:var(--fu);font-size:8px;font-weight:700;color:var(--mu);cursor:pointer">ФРЕЙМВОРК</button>
+    </div>
+
+    <!-- Panel 1: Quick start -->
+    <div id="pbd-p1">
+      <div style="font-family:var(--fu);font-size:10px;color:var(--a2);margin-bottom:8px">1. Установи зависимости</div>
+      <div onclick="pycopied(this,'pip install requests')" style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--ac);cursor:pointer;margin-bottom:12px;position:relative">pip install requests<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--fu);font-size:8px;color:var(--mu)">TAP TO COPY</span></div>
+      <div style="font-family:var(--fu);font-size:10px;color:var(--a2);margin-bottom:8px">2. Получи токен</div>
+      <div style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--sb);margin-bottom:12px;line-height:1.6">
+        Войди в Nexus → Настройки профиля → скопируй токен<br>
+        <span style="color:var(--mu);font-size:11px">Или через API: POST /api/login → {username, password}</span>
+      </div>
+      <div style="font-family:var(--fu);font-size:10px;color:var(--a2);margin-bottom:8px">3. Код бота (polling)</div>
+      <div onclick="pycopied(this,${JSON.stringify(code_simple)})" style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-family:monospace;font-size:11px;color:var(--tx);cursor:pointer;white-space:pre;overflow-x:auto;line-height:1.5;position:relative">${esc(code_simple).replace(/<br>/g,'\n')}<span style="position:absolute;right:10px;top:10px;font-family:var(--fu);font-size:8px;color:var(--mu);background:var(--s3);padding:2px 6px;border-radius:4px">TAP TO COPY</span></div>
+    </div>
+
+    <!-- Panel 2: WebSocket -->
+    <div id="pbd-p2" style="display:none">
+      <div style="font-family:var(--fu);font-size:10px;color:var(--a2);margin-bottom:8px">Установи зависимости</div>
+      <div onclick="pycopied(this,'pip install websocket-client')" style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--ac);cursor:pointer;margin-bottom:12px;position:relative">pip install websocket-client<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-family:var(--fu);font-size:8px;color:var(--mu)">TAP TO COPY</span></div>
+      <div style="font-family:var(--fu);font-size:10px;color:var(--a2);margin-bottom:8px">WebSocket бот</div>
+      <div onclick="pycopied(this,${JSON.stringify(code_ws)})" style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-family:monospace;font-size:11px;color:var(--tx);cursor:pointer;white-space:pre;overflow-x:auto;line-height:1.5;position:relative">${esc(code_ws).replace(/<br>/g,'\n')}<span style="position:absolute;right:10px;top:10px;font-family:var(--fu);font-size:8px;color:var(--mu);background:var(--s3);padding:2px 6px;border-radius:4px">TAP TO COPY</span></div>
+    </div>
+
+    <!-- Panel 3: Framework -->
+    <div id="pbd-p3" style="display:none">
+      <div style="font-family:var(--fu);font-size:10px;color:var(--a2);margin-bottom:8px">Мини-фреймворк NexusBot</div>
+      <div style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--sb);margin-bottom:12px;line-height:1.6">
+        Декоратор <code style="color:var(--ac);background:rgba(79,138,255,.1);padding:1px 5px;border-radius:3px">@bot.on_text()</code> — привязывает команду к функции.<br>
+        Отправляй ответы через <code style="color:var(--ac);background:rgba(79,138,255,.1);padding:1px 5px;border-radius:3px">bot.send(user, text)</code>
+      </div>
+      <div onclick="pycopied(this,${JSON.stringify(code_full)})" style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:12px 14px;font-family:monospace;font-size:10.5px;color:var(--tx);cursor:pointer;white-space:pre;overflow-x:auto;line-height:1.5;position:relative">${esc(code_full).replace(/<br>/g,'\n')}<span style="position:absolute;right:10px;top:10px;font-family:var(--fu);font-size:8px;color:var(--mu);background:var(--s3);padding:2px 6px;border-radius:4px">TAP TO COPY</span></div>
+    </div>
+
+    <!-- WS Reference -->
+    <div style="margin-top:16px;padding:12px;background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.15);border-radius:12px;font-size:11px;color:var(--sb);line-height:1.7">
+      <div style="font-family:var(--fu);font-size:9px;color:var(--a2);font-weight:700;margin-bottom:6px">WS ПРОТОКОЛ</div>
+      <b style="color:var(--tx)">Подключение:</b> <code style="color:var(--ac)">${wsBase}</code><br>
+      <b style="color:var(--tx)">Авторизация:</b> <code style="color:var(--ac)">{"type":"auth","token":"..."}</code><br>
+      <b style="color:var(--tx)">Получить сообщение:</b> <code style="color:var(--ac)">{"type":"message","from":"user","text":"..."}</code><br>
+      <b style="color:var(--tx)">Отправить:</b> <code style="color:var(--ac)">{"type":"message","to":"user","text":"...","id":"uniq"}</code><br>
+      <b style="color:var(--tx)">Пинг:</b> <code style="color:var(--ac)">{"type":"ping"}</code>
+    </div>
+
+    <div id="pbd-copy-ok" style="display:none;margin-top:10px;color:var(--gn);font-size:12px;font-family:var(--fu)">✓ Скопировано!</div>
+    <button class="mbtn mbtn-g" onclick="closeModal('pybot-modal')" style="margin-top:14px">Закрыть</button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function pybotTab(n){
+  [1,2,3].forEach(i=>{
+    const p=document.getElementById('pbd-p'+i), b=document.getElementById('pbd-t'+i);
+    if(!p||!b) return;
+    const on=i===n;
+    p.style.display=on?'block':'none';
+    b.style.borderColor=on?'var(--a2)':'var(--b1)';
+    b.style.background=on?'rgba(139,92,246,.1)':'transparent';
+    b.style.color=on?'var(--a2)':'var(--mu)';
+  });
+}
+
+function pycopied(el, code){
+  navigator.clipboard.writeText(code).then(()=>{
+    const ok=document.getElementById('pbd-copy-ok');
+    if(ok){ ok.style.display='block'; setTimeout(()=>ok.style.display='none',2000); }
+    const span=el.querySelector('span');
+    if(span){ const prev=span.textContent; span.textContent='✓ Скопировано!'; span.style.color='var(--gn)'; setTimeout(()=>{ span.textContent=prev; span.style.color=''; },2000); }
+  }).catch(()=>toast('Скопируй вручную'));
+}
 
 </script>
 </body>
