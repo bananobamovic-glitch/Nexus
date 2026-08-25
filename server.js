@@ -25,9 +25,178 @@ let db = {
   messages: {},
   channels: {},
   media:    {},   // id → {id, owner, mime, data(base64), size, ts}
+  bots:     {},   // username → { name, code, enabled, username, createdAt }
   counter:  0,
   gistId:   process.env.GIST_ID || '',
 };
+
+// ─── Python Bot Sandbox ───────────────────────────
+// Выполняем Python-код через child_process (python3 должен быть на сервере)
+// На Render.com python3 есть по умолчанию
+const { spawn } = require('child_process');
+const os = require('os');
+const path_mod = require('path');
+
+// Активные боты: botUsername → { proc, owner, msgQueue }
+const activeBots = new Map();
+
+function startBot(botDef) {
+  const { username, code, owner } = botDef;
+  if (activeBots.has(username)) stopBot(username);
+
+  // Оборачиваем код пользователя в runtime-обёртку
+  const runtime = buildRuntime(username, owner, code);
+  const tmpFile = path_mod.join(os.tmpdir(), `nexus_bot_${username}.py`);
+  require('fs').writeFileSync(tmpFile, runtime, 'utf8');
+
+  const proc = spawn('python3', ['-u', tmpFile], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, PYTHONUNBUFFERED: '1' },
+  });
+
+  activeBots.set(username, { proc, owner, msgQueue: [] });
+
+  proc.stdout.on('data', (data) => {
+    // Бот пишет JSON-команды в stdout
+    String(data).split('\n').forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      try {
+        const cmd = JSON.parse(line);
+        handleBotCmd(username, owner, cmd);
+      } catch(e) { /* ignore non-json debug output */ }
+    });
+  });
+
+  proc.stderr.on('data', (data) => {
+    console.log(`[bot:${username}] stderr:`, String(data).slice(0, 200));
+  });
+
+  proc.on('exit', (code) => {
+    console.log(`[bot:${username}] exited with code ${code}`);
+    activeBots.delete(username);
+    require('fs').unlink(tmpFile, ()=>{});
+  });
+
+  // Пинг процессу каждые 30с
+  const pingIv = setInterval(() => {
+    if (!activeBots.has(username)) { clearInterval(pingIv); return; }
+    const b = activeBots.get(username);
+    try { b.proc.stdin.write(JSON.stringify({type:'ping'}) + '\n'); } catch{}
+  }, 30000);
+
+  console.log(`🤖 Bot @${username} started (owner: @${owner})`);
+}
+
+function stopBot(username) {
+  const b = activeBots.get(username);
+  if (!b) return;
+  try { b.proc.kill('SIGTERM'); } catch {}
+  activeBots.delete(username);
+  console.log(`🛑 Bot @${username} stopped`);
+}
+
+function handleBotCmd(botUsername, owner, cmd) {
+  if (!cmd || !cmd.type) return;
+  if (cmd.type === 'send') {
+    const to = cmd.to || '';
+    const text = String(cmd.text || '').slice(0, 2000);
+    if (!to || !text) return;
+    const msg = {
+      id:   `bot_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+      from: botUsername, to,
+      text, ts: Date.now(), read: false,
+    };
+    saveMsg(msg);
+    relay(to, { type: 'message', ...msg });
+  }
+}
+
+function deliverToBot(botUsername, fromUser, text) {
+  const b = activeBots.get(botUsername);
+  if (!b) return;
+  try {
+    b.proc.stdin.write(JSON.stringify({ type: 'message', from: fromUser, text }) + '\n');
+  } catch(e) {}
+}
+
+// Строим Python runtime-обёртку для кода пользователя
+function buildRuntime(botUsername, ownerUsername, userCode) {
+  const lines = [
+    'import sys, json, os, random, time, re, math',
+    'from datetime import datetime',
+    '',
+    'class _Bot:',
+    '    def __init__(self):',
+    '        self._handlers = {}',
+    '        self._state = {}',
+    '        self.username = ' + JSON.stringify(botUsername),
+    '        self.owner = ' + JSON.stringify(ownerUsername),
+    '    def send(self, to, text):',
+    '        print(json.dumps({"type":"send","to":to,"text":str(text)}), flush=True)',
+    '    def get(self, key, default=None):',
+    '        return self._state.get(key, default)',
+    '    def set(self, key, value):',
+    '        self._state[key] = value',
+    '    def delete(self, key):',
+    '        self._state.pop(key, None)',
+    '    def command(self, cmd):',
+    '        def dec(fn):',
+    '            self._handlers[cmd.lower().strip()] = fn',
+    '            return fn',
+    '        return dec',
+    '    def on_text(self, pattern="*"):',
+    '        def dec(fn):',
+    '            self._handlers[pattern.lower().strip()] = fn',
+    '            return fn',
+    '        return dec',
+    '    def _dispatch(self, user, text):',
+    '        t = text.strip().lower()',
+    '        if t in self._handlers:',
+    '            self._handlers[t](user, text)',
+    '            return',
+    '        for key, fn in self._handlers.items():',
+    '            if key != "*" and t.startswith(key + " "):',
+    '                fn(user, text)',
+    '                return',
+    '        if "*" in self._handlers:',
+    '            self._handlers["*"](user, text)',
+    '    def run(self):',
+    '        for line in sys.stdin:',
+    '            line = line.strip()',
+    '            if not line: continue',
+    '            try:',
+    '                msg = json.loads(line)',
+    '            except:',
+    '                continue',
+    '            if msg.get("type") == "message":',
+    '                try:',
+    '                    self._dispatch(msg["from"], msg.get("text",""))',
+    '                except Exception as e:',
+    '                    pass',
+    '            elif msg.get("type") == "ping":',
+    '                print(json.dumps({"type":"pong"}), flush=True)',
+    '',
+    'bot = _Bot()',
+    '',
+    '# --- User code ---',
+    userCode,
+    '',
+    '# --- Autostart ---',
+    'bot.run()',
+  ];
+  return lines.join('\n');
+}
+
+// При старте сервера — перезапускаем всех включённых ботов
+function restartAllBots() {
+  Object.values(db.bots).forEach(b => {
+    if (b.enabled) {
+      try { startBot(b); } catch(e) { console.error('Bot start error:', e.message); }
+    }
+  });
+}
+
 
 // Лимит хранилища медиа: 200 файлов, старые удаляются
 const MEDIA_LIMIT = 200;
@@ -73,6 +242,7 @@ async function saveGist() {
     channels: db.channels,
     messages: {},
     // Медиа НЕ сохраняем в Gist — слишком большие, хранятся только в памяти
+    bots: db.bots,
   };
   Object.keys(db.messages).forEach(r => {
     // Убираем src из медиа-сообщений перед сохранением (храним только мета)
@@ -112,7 +282,8 @@ async function loadGist() {
     db.counter  = p.counter  || 0;
     db.messages = p.messages || {};
     db.channels = p.channels || {};
-    console.log(`✅ Gist загружен: ${Object.keys(db.users).length} users, ${Object.keys(db.channels).length} channels`);
+    db.bots     = p.bots     || {};
+    console.log(`✅ Gist загружен: ${Object.keys(db.users).length} users, ${Object.keys(db.channels).length} channels, ${Object.keys(db.bots).length} bots`);
   } catch(e) { console.error('Gist parse error:', e.message); }
 }
 
@@ -657,6 +828,126 @@ const server = http.createServer((req, res) => {
       return;
     }
 
+    // ════════════════════════════════════════════════
+    //  BOT STUDIO API — создание/управление ботами
+    // ════════════════════════════════════════════════
+
+    // GET /api/bots — список ботов пользователя
+    if (req.method === 'GET' && url.pathname === '/api/bots') {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const list = Object.values(db.bots)
+        .filter(b => b.owner === me.username)
+        .map(b => ({ ...b, code: undefined, running: activeBots.has(b.username) }));
+      return send(res, 200, { ok: true, bots: list });
+    }
+
+    // POST /api/bots — создать/сохранить бота
+    if (req.method === 'POST' && url.pathname === '/api/bots') {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const { name, code, username: botUsername } = data;
+      if (!name || !code) return send(res, 400, { error: 'Нужны name и code' });
+
+      // username бота = owner_botname (латиница)
+      const slug = (botUsername || name).toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_').slice(0, 20);
+      const finalUsername = `${me.username}_${slug}`;
+
+      // Проверяем что это бот именно этого пользователя
+      const existing = db.bots[finalUsername];
+      if (existing && existing.owner !== me.username) {
+        return send(res, 403, { error: 'Не твой бот' });
+      }
+
+      const botDef = {
+        username:  finalUsername,
+        name,
+        code,
+        owner:     me.username,
+        enabled:   existing ? existing.enabled : false,
+        createdAt: existing ? existing.createdAt : Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      // Регистрируем бота как пользователя если не существует
+      if (!db.users[finalUsername]) {
+        const salt = newSalt();
+        db.users[finalUsername] = {
+          uuid:         '#BOT_' + crypto.randomBytes(3).toString('hex').toUpperCase(),
+          username:     finalUsername,
+          nickname:     name,
+          visibleName:  name,
+          color:        '#8b5cf6',
+          isBot:        true,
+          owner:        me.username,
+          salt,
+          passwordHash: hashPw(crypto.randomBytes(16).toString('hex'), salt),
+          createdAt:    Date.now(),
+          lastSeen:     Date.now(),
+        };
+      } else {
+        db.users[finalUsername].nickname    = name;
+        db.users[finalUsername].visibleName = name;
+      }
+
+      db.bots[finalUsername] = botDef;
+      schedSave();
+
+      // Перезапускаем если был включён
+      if (botDef.enabled) startBot(botDef);
+
+      return send(res, 200, { ok: true, bot: { ...botDef, code: undefined, running: activeBots.has(finalUsername) } });
+    }
+
+    // POST /api/bots/:id/toggle — включить/выключить
+    const botToggleMatch = url.pathname.match(/^\/api\/bots\/([^/]+)\/toggle$/);
+    if (req.method === 'POST' && botToggleMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const botId = botToggleMatch[1];
+      const botDef = db.bots[botId];
+      if (!botDef) return send(res, 404, { error: 'Бот не найден' });
+      if (botDef.owner !== me.username) return send(res, 403, { error: 'Не твой бот' });
+
+      botDef.enabled = !botDef.enabled;
+      schedSave();
+
+      if (botDef.enabled) {
+        startBot(botDef);
+      } else {
+        stopBot(botId);
+      }
+      return send(res, 200, { ok: true, enabled: botDef.enabled, running: activeBots.has(botId) });
+    }
+
+    // GET /api/bots/:id/code — получить код бота
+    const botCodeMatch = url.pathname.match(/^\/api\/bots\/([^/]+)\/code$/);
+    if (req.method === 'GET' && botCodeMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const botDef = db.bots[botCodeMatch[1]];
+      if (!botDef) return send(res, 404, { error: 'Не найден' });
+      if (botDef.owner !== me.username) return send(res, 403, { error: 'Не твой бот' });
+      return send(res, 200, { ok: true, code: botDef.code });
+    }
+
+    // DELETE /api/bots/:id — удалить бота
+    const botDelMatch = url.pathname.match(/^\/api\/bots\/([^/]+)$/);
+    if (req.method === 'DELETE' && botDelMatch) {
+      const me = validateSession(token);
+      if (!me) return send(res, 401, { error: 'Unauthorized' });
+      const botId = botDelMatch[1];
+      const botDef = db.bots[botId];
+      if (!botDef) return send(res, 404, { error: 'Не найден' });
+      if (botDef.owner !== me.username) return send(res, 403, { error: 'Не твой бот' });
+      stopBot(botId);
+      delete db.bots[botId];
+      delete db.users[botId];
+      schedSave();
+      return send(res, 200, { ok: true });
+    }
+
     // ── GET /api/bot/updates ─── для Python-ботов (polling) ──
     if (req.method === 'GET' && url.pathname === '/api/bot/updates') {
       const botToken = url.searchParams.get('token') || token;
@@ -773,7 +1064,12 @@ wss.on('connection', ws => {
         delete m.type;
         if (!m.id) return;
         saveMsg(m);
-        relay(m.to, { type: 'message', ...m });
+        // Если получатель — бот, доставляем в его процесс
+        if (m.to && activeBots.has(m.to)) {
+          deliverToBot(m.to, me, m.text || '');
+        } else {
+          relay(m.to, { type: 'message', ...m });
+        }
         ws.send(J({ type: 'msg_ack', id: m.id }));
         break;
       }
@@ -921,6 +1217,8 @@ async function start() {
     await loadGist();
   }
   await fetchHTML();
+  // Перезапускаем включённых ботов
+  restartAllBots();
   server.listen(PORT, () => {
     console.log(`\n🚀 Nexus v7 → http://localhost:${PORT}`);
     console.log(`   Users:    ${Object.keys(db.users).length}`);
