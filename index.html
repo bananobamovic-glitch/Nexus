@@ -334,6 +334,46 @@ input.fi::placeholder{color:var(--mu)}input.fi.ok{border-color:var(--gn)}input.f
 .lp-cp:hover{opacity:.85}.lp-cp.done{background:var(--gn)}
 .lp-cl{width:100%;padding:9px;background:transparent;border:1px solid var(--b1);border-radius:9px;color:var(--sb);font-family:var(--fu);font-size:10px;font-weight:600;transition:border-color .18s}
 .lp-cl:hover{border-color:var(--b2)}
+
+/* ── Telegram-style voice bubble ── */
+.vbub{display:flex;align-items:center;gap:10px;max-width:min(68%,280px);padding:10px 14px;border-radius:18px;animation:.18s bpop cubic-bezier(.22,1,.36,1) both;position:relative}
+.mg.me .vbub{background:var(--ac);border-bottom-right-radius:6px}
+.mg.them .vbub{background:var(--s2);border:1px solid var(--b1);border-bottom-left-radius:6px}
+.vplay{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s;border:none;cursor:pointer}
+.mg.me .vplay{background:rgba(255,255,255,.25)}.mg.them .vplay{background:var(--ac)}
+.vplay:hover{transform:scale(1.08)}.vplay svg{width:18px;height:18px;fill:#fff}
+.vwf{flex:1;height:32px;display:flex;align-items:center;gap:1.5px;cursor:pointer}
+.vbar{border-radius:2px;min-height:2px;width:3px;flex-shrink:0;transition:background .2s}
+.mg.me .vbar{background:rgba(255,255,255,.4)}.mg.them .vbar{background:var(--b2)}
+.mg.me .vbar.p{background:#fff}.mg.them .vbar.p{background:var(--ac)}
+.v-meta{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.vdur{font-size:11px;font-weight:600}.mg.me .vdur{color:rgba(255,255,255,.85)}.mg.them .vdur{color:var(--tx)}
+.vsize{font-size:9px;font-family:var(--fu)}.mg.me .vsize{color:rgba(255,255,255,.5)}.mg.them .vsize{color:var(--mu)}
+
+/* ── Telegram-style video circle ── */
+.vcw{display:flex;flex-direction:column;gap:2px;max-width:200px;animation:.18s bpop cubic-bezier(.22,1,.36,1) both}
+.mg.me .vcw{align-items:flex-end}.mg.them .vcw{align-items:flex-start}
+.vc{width:200px;height:200px;border-radius:50%;overflow:hidden;position:relative;cursor:pointer;border:3px solid rgba(255,255,255,.15);background:#111;flex-shrink:0;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.vc video{width:100%;height:100%;object-fit:cover;display:block}
+.vc-ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);transition:opacity .2s}
+.vc:hover .vc-ov{opacity:.8}
+.vc-ov svg{width:52px;height:52px;fill:rgba(255,255,255,.95);filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.vc-duration{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-family:var(--fu);font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.04em}
+.vc-time-row{font-size:10px;color:var(--sb);text-align:center;padding:2px 0}
+
+/* ── @mention ── */
+.mention{color:var(--ac);cursor:pointer;font-weight:600}
+.mention:hover{text-decoration:underline}
+
+/* ── Bot Studio ── */
+.bs-editor{width:100%;min-height:220px;background:var(--s3);border:1.5px solid var(--b1);border-radius:10px;color:var(--tx);font-family:'Courier New',monospace;font-size:13px;padding:12px;outline:none;resize:vertical;line-height:1.6;tab-size:4;-webkit-appearance:none}
+.bs-editor:focus{border-color:var(--a2)}
+.bs-bot-card{background:var(--s3);border:1px solid var(--b1);border-radius:14px;padding:13px 14px;display:flex;align-items:center;gap:12px;transition:background .12s}
+.bs-bot-card:hover{background:var(--b1)}
+.bs-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.bs-status.on{background:var(--gn);box-shadow:0 0 6px var(--gn)}
+.bs-status.off{background:var(--mu)}
+
 /* TOAST */
 .toast{position:fixed;bottom:max(18px,var(--sb2));right:16px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:10px 15px;font-size:12px;color:var(--tx);box-shadow:0 8px 28px rgba(0,0,0,.55);animation:.28s ctxIn ease;z-index:999;max-width:min(280px,calc(100vw - 32px));pointer-events:none}
 .toast strong{color:var(--ac)}
@@ -507,14 +547,10 @@ body.night{--bg:#000;--s1:#0a0a0a;--s2:#0f0f0f;--s3:#141414;--b1:#1a1a1a;--b2:#2
       Nexus Bot
       <span style="margin-left:auto;font-family:var(--fu);font-size:8px;color:var(--gn);font-weight:700;letter-spacing:.04em">● ОНЛАЙН</span>
     </div>
-    <div class="dr-item" onclick="openBotConstructor()">
+    <div class="dr-item" onclick="openBotStudio()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M12 2a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M12 8v4M8 10H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2v-6a2 2 0 00-2-2h-4" stroke-linecap="round"/><circle cx="9" cy="15" r="1" fill="currentColor"/><circle cx="15" cy="15" r="1" fill="currentColor"/></svg>
-      Мои боты
-    </div>
-    <div class="dr-item" onclick="openPythonBotDocs()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Python Bot API
-      <span style="margin-left:auto;font-family:var(--fu);font-size:8px;color:var(--a2);font-weight:700;letter-spacing:.04em">DOCS</span>
+      Bot Studio 🐍
+      <span style="margin-left:auto;font-family:var(--fu);font-size:8px;color:var(--a2);font-weight:700;letter-spacing:.04em">PYTHON</span>
     </div>
     <div class="dr-item" onclick="openChannels()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1022,10 +1058,18 @@ function handleWS(msg){
         appendCallChatMsg(msg.from, msg.text);
         break;
       }
+      // Кешируем отправителя если не знаем (боты, новые пользователи)
+      if(msg.from && !getUser(msg.from)){
+        api('GET',`/api/users?q=${encodeURIComponent(msg.from)}`).then(res=>{
+          const u=(res||[]).find(x=>x.username===msg.from);
+          if(u) cU(u);
+        });
+      }
       recvMsg(msg);
       if(document.hidden||!document.hasFocus()){
-        const sender = getUser(msg.from);
-        pushNotif(`💬 ${sender?.nickname||msg.from}`,{body:msg.text?.slice(0,80)||'📎 Медиа',icon:'/favicon.ico',tag:'msg_'+msg.from});
+        const sender=getUser(msg.from);
+        const preview=msg.type==='voice'?'🎤 Голосовое':msg.type==='video_circle'?'📹 Видео':msg.text?.slice(0,80)||'📎';
+        pushNotif(`💬 ${sender?.nickname||msg.from}`,{body:preview,icon:'/favicon.ico',tag:'msg_'+msg.from});
       }
       break;
     case 'msg_ack': sentIds.delete(msg.id); break;
@@ -1309,7 +1353,7 @@ function renderMsg(m, wrap, animate){
       <div class="bub-reply-txt">${esc(m.replyTo.text||'')}</div>
     </div>`;
   }
-  inner += `${esc(m.text||'')}<span class="bub-time">${tsStr(m.ts)}</span>`;
+  inner += `${formatMsgText(m.text||'')}<span class="bub-time">${tsStr(m.ts)}</span>`;
   bub.innerHTML=inner;
 
   bub.addEventListener('contextmenu', e=>{ e.preventDefault(); showCtx(e,m,isMe); });
@@ -1337,56 +1381,97 @@ function renderVoiceBub(m,grp,isMe,animate){
   el.dataset.id=m.id; el.dataset.src=m.src||''; el.dataset.dur=dur;
   el.addEventListener('contextmenu',e=>{ e.preventDefault(); showCtx(e,m,isMe); });
   el.addEventListener('touchstart',makeLongPress(e=>showCtx(e,m,isMe)),{passive:true});
-  el.innerHTML=`<button class="vplay" onclick="playVoice(this)" ${uploading?'disabled':''}>
-    ${uploading
-      ? '<span class="spin" style="border-top-color:#fff;border-color:rgba(255,255,255,.25)"></span>'
-      : '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>'}
-  </button>
-  <div class="vwf" id="wf-${m.id}">${bars.map((h,i)=>`<div class="vbar" data-i="${i}" style="height:${h}px"></div>`).join('')}</div>
-  <span class="vdur">${uploading?'загрузка...':fmtD(dur)}</span>`;
+  el.innerHTML=`
+    <button class="vplay" onclick="playVoice(this)" ${uploading?'disabled':''}>
+      ${uploading
+        ? '<span class="spin" style="border-top-color:#fff;border-color:rgba(255,255,255,.25);width:16px;height:16px"></span>'
+        : '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>'}
+    </button>
+    <div class="vwf" id="wf-${m.id}" onclick="seekVoice(this,event)">
+      ${bars.map((h,i)=>`<div class="vbar" data-i="${i}" style="height:${Math.max(3,h)}px"></div>`).join('')}
+    </div>
+    <div class="v-meta">
+      <span class="vdur">${uploading?'...' : fmtD(dur)}</span>
+    </div>`;
   grp.appendChild(el);
   if(isMe){ const rr=document.createElement('div'); rr.className='rr'+(m.read?' read':''); rr.dataset.mid=m.id; rr.textContent=m.read?'✓✓ прочитано':'✓ доставлено'; grp.appendChild(rr); }
 }
 
 function waveform(seed){
-  let s = typeof seed==='string' ? [...seed].reduce((a,c)=>a*31+c.charCodeAt(0),0) : seed;
+  let s=typeof seed==='string'?[...seed].reduce((a,c)=>a*31+c.charCodeAt(0),0):seed;
   const bars=[];
-  for(let i=0;i<28;i++){ s=(s*9301+49297)%233280; bars.push(Math.max(4,Math.round(s/233280*24))); }
+  for(let i=0;i<36;i++){ s=(s*9301+49297)%233280; bars.push(Math.max(3,Math.round(s/233280*26))); }
   return bars;
 }
 
-let curAudio=null;
+let curAudio=null, curAudioBub=null;
 function playVoice(btn){
-  const bub=btn.closest('.vbub'); if(!bub||!bub.dataset.src){ toast('⏳ Файл ещё загружается...'); return; }
-  if(curAudio){ curAudio.pause(); curAudio=null; }
-  const audio=new Audio(bub.dataset.src); curAudio=audio;
+  const bub=btn.closest('.vbub');
+  if(!bub||!bub.dataset.src){ toast('⏳ Ещё загружается...'); return; }
+  if(curAudio && curAudioBub===bub){
+    // Пауза того же
+    curAudio.pause(); curAudio=null; curAudioBub=null;
+    btn.innerHTML='<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+    return;
+  }
+  if(curAudio){ curAudio.pause(); curAudio=null;
+    document.querySelectorAll('.vplay').forEach(b=>b.innerHTML='<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>');
+    document.querySelectorAll('.vbar').forEach(b=>b.classList.remove('p'));
+  }
+  const audio=new Audio(bub.dataset.src); curAudio=audio; curAudioBub=bub;
   const dur=parseInt(bub.dataset.dur)||1;
   const bars=bub.querySelectorAll('.vbar');
+  const durEl=bub.querySelector('.vdur');
   btn.innerHTML='<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-  audio.ontimeupdate=()=>{ const p=audio.currentTime/(audio.duration||dur); const c=Math.floor(p*bars.length); bars.forEach((b,i)=>b.classList.toggle('p',i<c)); };
-  audio.onended=()=>{ btn.innerHTML='<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>'; bars.forEach(b=>b.classList.remove('p')); curAudio=null; };
-  audio.play().catch(()=>{});
+  audio.ontimeupdate=()=>{
+    const p=audio.currentTime/(audio.duration||dur);
+    const c=Math.floor(p*bars.length);
+    bars.forEach((b,i)=>b.classList.toggle('p',i<c));
+    if(durEl) durEl.textContent=fmtD(Math.floor(audio.duration-audio.currentTime)||0);
+  };
+  audio.onended=()=>{
+    btn.innerHTML='<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+    bars.forEach(b=>b.classList.remove('p'));
+    if(durEl) durEl.textContent=fmtD(dur);
+    curAudio=null; curAudioBub=null;
+  };
+  audio.play().catch(()=>{ toast('Ошибка воспроизведения'); });
+}
+function seekVoice(wf, e){
+  const bub=wf.closest('.vbub');
+  if(!bub||!curAudio||curAudioBub!==bub) return;
+  const rect=wf.getBoundingClientRect();
+  const p=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+  curAudio.currentTime=p*(curAudio.duration||0);
 }
 
 // ── Video circle bubble ───────────────────────────
 function renderVideoBub(m,grp,isMe,animate){
   const uploading=!m.src;
+  const dur=m.duration||0;
   const wrap=document.createElement('div'); wrap.className='vcw'; if(!animate) wrap.style.animation='none'; wrap.dataset.id=m.id;
   wrap.addEventListener('contextmenu',e=>{ e.preventDefault(); showCtx(e,m,isMe); });
   wrap.addEventListener('touchstart',makeLongPress(e=>showCtx(e,m,isMe)),{passive:true});
   const circ=document.createElement('div'); circ.className='vc';
   if(uploading){
-    circ.innerHTML=`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-size:12px;flex-direction:column;gap:8px"><span class="spin" style="width:24px;height:24px;border-width:3px"></span>загрузка...</div>`;
+    circ.innerHTML=`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111;color:rgba(255,255,255,.6);font-size:12px;flex-direction:column;gap:8px"><span class="spin" style="width:28px;height:28px;border-width:3px;border-top-color:#fff;border-color:rgba(255,255,255,.2)"></span><span style="font-family:var(--fu);font-size:9px;letter-spacing:.06em">ЗАГРУЗКА</span></div>`;
   } else {
-    circ.innerHTML=`<video src="${m.src}" loop playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block"></video>
-      <div class="vc-ov" onclick="playVC(this)"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`;
+    circ.innerHTML=`<video src="${m.src}" playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block"></video>
+      <div class="vc-ov" onclick="playVC(this)"><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>
+      ${dur?`<div class="vc-duration">${fmtD(dur)}</div>`:''}`;
   }
   wrap.appendChild(circ);
-  const tEl=document.createElement('div'); tEl.className='vc-time'; tEl.textContent=tsStr(m.ts); wrap.appendChild(tEl);
+  const tRow=document.createElement('div'); tRow.className='vc-time-row'; tRow.textContent=tsStr(m.ts); wrap.appendChild(tRow);
   grp.appendChild(wrap);
   if(isMe){ const rr=document.createElement('div'); rr.className='rr'+(m.read?' read':''); rr.dataset.mid=m.id; rr.textContent=m.read?'✓✓ прочитано':'✓ доставлено'; grp.appendChild(rr); }
 }
-function playVC(ov){ const v=ov.previousElementSibling; if(!v) return; if(v.paused){ v.play(); ov.style.opacity='0'; } else { v.pause(); ov.style.opacity='1'; } }
+
+function playVC(ov){
+  const v=ov.parentElement.querySelector('video'); if(!v) return;
+  if(v.paused){ v.play(); ov.style.opacity='0'; }
+  else { v.pause(); ov.style.opacity='1'; }
+}
+
 
 // ── Missed call ───────────────────────────────────
 function renderMissedCall(m,grp){
@@ -2147,6 +2232,238 @@ function xI(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor
 function chI(){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>`; }
 function toDataURL(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onloadend=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob); }); }
 function bestMime(list){ for(const t of list){ if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t)) return t; } return ''; }
+
+// ── @mention aware text formatter ────────────────
+function formatMsgText(text){
+  // escape first, then replace @username with clickable span
+  return esc(text).replace(/@([a-z0-9_]{3,24})/gi, (match, uname)=>{
+    return `<span class="mention" onclick="mentionClick('${uname.toLowerCase()}')">${match}</span>`;
+  });
+}
+function mentionClick(uname){
+  if(!ME) return;
+  if(uname===ME.username){ toast('@'+uname+' — это ты!'); return; }
+  const u=getUser(uname);
+  if(u?.private){ toast('🔒 Аккаунт приватный — напиши через ссылку'); return; }
+  openChat(uname);
+}
+
+// ════════════════════════════════════════════════════
+//  BOT STUDIO — пишем Python-ботов прямо в браузере
+// ════════════════════════════════════════════════════
+let bsMyBots = []; // кеш списка ботов
+
+function openBotStudio(){ closeDrawer(); loadAndShowBotStudio(); }
+
+async function loadAndShowBotStudio(){
+  document.querySelectorAll('#botstudio-modal').forEach(m=>m.remove());
+  const modal=document.createElement('div'); modal.className='modal on'; modal.id='botstudio-modal';
+  modal.innerHTML=`<div class="mbox" style="max-height:92vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="m-title" style="margin:0">🐍 Bot Studio</div>
+      <button class="mbtn" style="width:auto;padding:8px 14px;margin:0" onclick="openBotEditor(null)">+ Создать</button>
+    </div>
+    <div class="m-sub" style="margin-bottom:12px">Пиши Python-ботов прямо здесь — они отвечают в чатах как обычные пользователи</div>
+    <div id="bs-list"><div style="text-align:center;color:var(--mu);padding:20px;font-size:13px">Загрузка...</div></div>
+    <button class="mbtn mbtn-g" onclick="closeModal('botstudio-modal')" style="margin-top:14px">Закрыть</button>
+  </div>`;
+  document.body.appendChild(modal);
+  await refreshBotList();
+}
+
+async function refreshBotList(){
+  const d=await api('GET','/api/bots');
+  bsMyBots=d?.bots||[];
+  const list=g('bs-list'); if(!list) return;
+  if(!bsMyBots.length){
+    list.innerHTML=`<div style="text-align:center;color:var(--sb);padding:24px;font-size:13px;line-height:1.8">
+      Нет ботов.<br>Нажми <b>+ Создать</b> и напиши Python-код.<br>
+      <span style="font-size:11px;color:var(--mu)">Боты работают как пользователи — ищи их через поиск и пиши им</span>
+    </div>`;
+    return;
+  }
+  list.innerHTML='';
+  bsMyBots.forEach(b=>{
+    const card=document.createElement('div');
+    card.className='bs-bot-card';
+    card.style.marginBottom='8px';
+    card.innerHTML=`
+      <div class="bs-status ${b.running?'on':'off'}"></div>
+      <div style="width:40px;height:40px;border-radius:50%;background:#8b5cf622;color:#8b5cf6;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🤖</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${b.name}</div>
+        <div style="font-size:10px;color:var(--sb);margin-top:2px;font-family:var(--fu)">@${b.username} · ${b.running?'<span style="color:var(--gn)">ЗАПУЩЕН</span>':'<span style="color:var(--mu)">ОСТАНОВЛЕН</span>'}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="openBotEditor('${b.username}')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:12px;cursor:pointer">✏️</button>
+        <button onclick="toggleBot('${b.username}',this)" style="padding:6px 10px;background:${b.running?'rgba(255,79,114,.12)':'rgba(16,217,160,.12)'};color:${b.running?'var(--rd)':'var(--gn)'};border:1px solid ${b.running?'rgba(255,79,114,.2)':'rgba(16,217,160,.2)'};border-radius:8px;font-family:var(--fu);font-size:9px;font-weight:700;cursor:pointer">${b.running?'СТОП':'СТАРТ'}</button>
+        <button onclick="chatWithBot('${b.username}')" style="padding:6px 10px;background:rgba(79,138,255,.12);color:var(--ac);border:1px solid rgba(79,138,255,.2);border-radius:8px;font-family:var(--fu);font-size:9px;font-weight:700;cursor:pointer">ЧАТ</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+const DEFAULT_BOT_CODE = `# Привет! Это твой первый бот в Nexus.
+# Используй декораторы @bot.command() и @bot.on_text()
+# bot.send(to, text) — отправить сообщение
+# bot.get/set(key, value) — хранилище данных
+
+@bot.command("/start")
+def start(user, text):
+    bot.send(user, "Привет! 👋 Я твой бот.\\nНапиши /help для команд.")
+
+@bot.command("/help")
+def help_(user, text):
+    bot.send(user, "/start — приветствие\\n/ping — проверка связи\\n/echo текст — повторить")
+
+@bot.command("/ping")
+def ping(user, text):
+    bot.send(user, "pong 🏓")
+
+@bot.command("/echo")
+def echo(user, text):
+    parts = text.split(None, 1)
+    bot.send(user, parts[1] if len(parts) > 1 else "Что повторить?")
+
+@bot.on_text("*")
+def fallback(user, text):
+    bot.send(user, f"Не знаю команду: {text}\\nНапиши /help")
+`;
+
+const GAME_BOT_CODE = `# Игра: угадай число
+import random
+
+@bot.command("/start")
+def start(user, text):
+    n = random.randint(1, 100)
+    bot.set(user + "_n", n)
+    bot.set(user + "_tries", 0)
+    bot.send(user, "🎲 Угадай число от 1 до 100!\\nНапиши число:")
+
+@bot.on_text("*")
+def guess(user, text):
+    n = bot.get(user + "_n")
+    if n is None:
+        bot.send(user, "Напиши /start чтобы начать игру!")
+        return
+    try:
+        guess_num = int(text.strip())
+    except:
+        bot.send(user, "Введи число от 1 до 100")
+        return
+    tries = bot.get(user + "_tries", 0) + 1
+    bot.set(user + "_tries", tries)
+    if guess_num < n:
+        bot.send(user, f"📈 Больше! (попытка {tries})")
+    elif guess_num > n:
+        bot.send(user, f"📉 Меньше! (попытка {tries})")
+    else:
+        bot.set(user + "_n", None)
+        bot.send(user, f"🎉 Правильно! Это было {n}\\nТы угадал за {tries} попыток!\\n\\n/start — сыграть снова")
+`;
+
+async function openBotEditor(botUsername){
+  document.querySelectorAll('#botstudio-modal').forEach(m=>m.remove());
+  let existingCode = DEFAULT_BOT_CODE;
+  let existingName = '';
+  if(botUsername){
+    const d=await api('GET',`/api/bots/${botUsername}/code`);
+    if(d?.ok){ existingCode=d.code; }
+    const b=bsMyBots.find(x=>x.username===botUsername);
+    if(b) existingName=b.name;
+  }
+
+  const modal=document.createElement('div'); modal.className='modal on'; modal.id='botstudio-modal';
+  modal.innerHTML=`<div class="mbox" style="max-height:94vh;overflow-y:auto;padding-bottom:20px">
+    <div class="m-title">${botUsername?'✏️ Редактировать бота':'🆕 Новый бот'}</div>
+
+    <div class="fi-g">
+      <label class="fi-lbl">Имя бота</label>
+      <input class="fi" id="bs-name" placeholder="Мой бот" maxlength="30" value="${existingName}"/>
+    </div>
+
+    <!-- Шаблоны -->
+    ${!botUsername?`<div style="display:flex;gap:6px;margin-bottom:10px">
+      <button onclick="loadTemplate('echo')" style="padding:6px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer">📋 Базовый</button>
+      <button onclick="loadTemplate('game')" style="padding:6px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer">🎮 Игра</button>
+      <button onclick="loadTemplate('clear')" style="padding:6px 10px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;font-size:11px;cursor:pointer">🗒 Пустой</button>
+    </div>`:''}
+
+    <div class="fi-g">
+      <label class="fi-lbl">Python код</label>
+      <textarea class="bs-editor" id="bs-code" spellcheck="false" autocorrect="off" autocapitalize="none" onkeydown="bsTab(event)">${existingCode.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+    </div>
+
+    <div style="background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.15);border-radius:10px;padding:10px 12px;font-size:11px;color:var(--sb);line-height:1.7;margin-bottom:12px">
+      <b style="color:var(--a2)">API:</b>
+      <code style="color:var(--ac);background:rgba(79,138,255,.1);padding:1px 5px;border-radius:3px">bot.send(user, text)</code> — отправить ·
+      <code style="color:var(--ac);background:rgba(79,138,255,.1);padding:1px 5px;border-radius:3px">bot.get/set(key, val)</code> — хранилище ·
+      <code style="color:var(--ac);background:rgba(79,138,255,.1);padding:1px 5px;border-radius:3px">@bot.command("/cmd")</code> — команда ·
+      <code style="color:var(--ac);background:rgba(79,138,255,.1);padding:1px 5px;border-radius:3px">@bot.on_text("*")</code> — любой текст
+    </div>
+
+    <div class="m-err" id="bs-err"></div>
+    <button class="mbtn" onclick="saveBot('${botUsername||''}')">💾 Сохранить</button>
+    ${botUsername?`<button class="mbtn" style="background:rgba(255,79,114,.1);color:var(--rd);border:1px solid rgba(255,79,114,.2);box-shadow:none;margin-top:6px" onclick="deleteBotConfirm('${botUsername}')">🗑 Удалить бота</button>`:''}
+    <button class="mbtn mbtn-g" onclick="loadAndShowBotStudio()" style="margin-top:6px">← Назад</button>
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function bsTab(e){
+  if(e.key!=='Tab') return;
+  e.preventDefault();
+  const t=e.target, s=t.selectionStart, en=t.selectionEnd;
+  t.value=t.value.slice(0,s)+'    '+t.value.slice(en);
+  t.selectionStart=t.selectionEnd=s+4;
+}
+
+function loadTemplate(tpl){
+  const ed=g('bs-code'); if(!ed) return;
+  if(tpl==='game') ed.value=GAME_BOT_CODE;
+  else if(tpl==='clear') ed.value='@bot.command("/start")\ndef start(user, text):\n    bot.send(user, "Привет!")\n';
+  else ed.value=DEFAULT_BOT_CODE;
+}
+
+async function saveBot(existingUsername){
+  const name=(g('bs-name')?.value||'').trim();
+  const code=g('bs-code')?.value||'';
+  if(!name){ g('bs-err').className='m-err e'; g('bs-err').textContent='Введи имя бота'; return; }
+  if(!code.trim()){ g('bs-err').className='m-err e'; g('bs-err').textContent='Напиши код'; return; }
+  const btn=document.querySelector('#botstudio-modal .mbtn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>Сохраняем...'; }
+  const d=await api('POST','/api/bots',{name, code, username:existingUsername||name});
+  if(!d?.ok){
+    if(btn){ btn.disabled=false; btn.innerHTML='💾 Сохранить'; }
+    g('bs-err').className='m-err e';
+    g('bs-err').textContent=d?.error||'Ошибка сервера';
+    return;
+  }
+  toast(`✅ Бот "${name}" сохранён! Нажми СТАРТ чтобы запустить.`);
+  loadAndShowBotStudio();
+}
+
+async function toggleBot(botUsername, btn){
+  btn.disabled=true;
+  const d=await api('POST',`/api/bots/${botUsername}/toggle`,{});
+  if(!d?.ok){ toast('Ошибка: '+(d?.error||'')); btn.disabled=false; return; }
+  toast(d.enabled?`▶️ Бот запущен — ищи @${botUsername} в поиске`:`⏹ Бот остановлен`);
+  await refreshBotList();
+}
+
+async function deleteBotConfirm(botUsername){
+  if(!confirm('Удалить бота? Это необратимо.')) return;
+  const d=await api('DELETE',`/api/bots/${botUsername}`);
+  if(!d?.ok){ toast('Ошибка: '+(d?.error||'')); return; }
+  toast('Бот удалён');
+  loadAndShowBotStudio();
+}
+
+function chatWithBot(botUsername){
+  closeModal('botstudio-modal');
+  openChat(botUsername);
+}
+
 
 // PWA
 let deferredInstall=null;
